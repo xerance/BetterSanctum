@@ -205,6 +205,22 @@ public class BetterSanctumSettings : ISettings
                     }
                 }
 
+
+                // Part of the profile rather than a display preference: both follow the
+                // run strategy, and the tier cutoff is meaningless without the tiers it
+                // is counted against.
+                var duplicateRun = profile.DuplicateRun;
+                if (ImGui.Checkbox("Duplicate run", ref duplicateRun))
+                {
+                    profile.DuplicateRun = duplicateRun;
+                }
+
+                var hideCurrencyBelowTier = profile.HideCurrencyBelowTier;
+                if (ImGui.SliderInt("Hide currency below tier", ref hideCurrencyBelowTier, 1, 5))
+                {
+                    profile.HideCurrencyBelowTier = hideCurrencyBelowTier;
+                }
+
                 if (ImGui.TreeNode("Currency tiering"))
                 {
                     ImGui.InputTextWithHint("##CurrencyFilter", "Filter", ref currencyFilter, 100);
@@ -351,6 +367,14 @@ public class BetterSanctumSettings : ISettings
             : 3;
     }
 
+    // Read off the active profile, so the plugin keeps reading Settings.X unchanged.
+    // JsonIgnore, or Newtonsoft would write these back out alongside the profiles.
+    [JsonIgnore]
+    public bool DuplicateRun => GetCurrentProfile().profile.DuplicateRun;
+
+    [JsonIgnore]
+    public int HideCurrencyBelowTier => GetCurrentProfile().profile.HideCurrencyBelowTier;
+
     public int GetAfflictionTier(string type)
     {
         return GetCurrentProfile().profile.AfflictionTiers.GetValueOrDefault(type ?? "", 2);
@@ -375,7 +399,6 @@ public class BetterSanctumSettings : ISettings
     public ColorNode Tier3CurrencyColor { get; set; } = new(Color.White);
     public ColorNode Tier4CurrencyColor { get; set; } = new(Color.Gray);
     public ColorNode Tier5CurrencyColor { get; set; } = new(Color.Gray);
-    public RangeNode<int> HideCurrencyBelowTier { get; set; } = new(5, 1, 5);
 
     public ColorNode Tier1AfflictionColor { get; set; } = new(Color.Green);
     public ColorNode Tier2AfflictionColor { get; set; } = new(Color.White);
@@ -394,11 +417,13 @@ public class BetterSanctumSettings : ISettings
     [JsonIgnore]
     public CustomNode TieringNode { get; set; }
 
-    public ToggleNode DuplicateRun { get; set; } = new ToggleNode(false);
 }
 
 public class ProfileContent
 {
+    public bool DuplicateRun = false;
+    public int HideCurrencyBelowTier = 5;
+
     public Dictionary<string, int> CurrencyTiers = new()
     {
         ["Mirrors of Kalandra"] = 1,
