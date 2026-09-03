@@ -248,28 +248,50 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
                 }
             }
 
+            // Anchor the route to where you actually stand. FloorData.RoomChoices holds
+            // the room index taken in each completed layer, so its count is the layer you
+            // are choosing from next and its last entry is your current room. Empty at the
+            // start of a floor, where every room in layer 0 is a candidate.
+            var roomChoices = floorWindow.FloorData.RoomChoices is IEnumerable rawChoices
+                ? rawChoices.Cast<int>().ToList()
+                : new List<int>();
+            var startLayer = roomChoices.Count;
+            IEnumerable<int> startCandidates;
+            if (startLayer == 0)
+            {
+                startCandidates = Enumerable.Range(0, roomsByLayer[0].Count);
+            }
+            else
+            {
+                // Only rooms connected to the current one can be entered next
+                startCandidates = floorWindow.FloorData.RoomLayout[startLayer - 1][roomChoices[startLayer - 1]];
+            }
+
             var routeRoom = -1;
             var routeMustCount = 0;
             var routeScore = 0;
-            for (var roomIndex = 0; roomIndex < roomsByLayer[0].Count; roomIndex++)
+            if (startLayer < roomsByLayer.Count)
             {
-                if (!routeValue.TryGetValue((0, roomIndex), out var candidate))
+                foreach (var roomIndex in startCandidates)
                 {
-                    continue;
-                }
+                    if (!routeValue.TryGetValue((startLayer, roomIndex), out var candidate))
+                    {
+                        continue;
+                    }
 
-                if (routeRoom < 0 ||
-                    candidate.MustCount > routeMustCount ||
-                    (candidate.MustCount == routeMustCount && candidate.Score > routeScore))
-                {
-                    routeRoom = roomIndex;
-                    routeMustCount = candidate.MustCount;
-                    routeScore = candidate.Score;
+                    if (routeRoom < 0 ||
+                        candidate.MustCount > routeMustCount ||
+                        (candidate.MustCount == routeMustCount && candidate.Score > routeScore))
+                    {
+                        routeRoom = roomIndex;
+                        routeMustCount = candidate.MustCount;
+                        routeScore = candidate.Score;
+                    }
                 }
             }
 
             // routeRoom goes negative at the last layer, ending the walk
-            for (var layerIndex = 0; routeRoom >= 0 && layerIndex < roomsByLayer.Count; layerIndex++)
+            for (var layerIndex = startLayer; routeRoom >= 0 && layerIndex < roomsByLayer.Count; layerIndex++)
             {
                 bestRoute.Add((layerIndex, routeRoom));
                 routeRoom = routeValue[(layerIndex, routeRoom)].Next;
