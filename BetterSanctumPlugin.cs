@@ -597,28 +597,40 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
 
     private const int TierCount = 8;
 
-    // Compared outward from the extremes: a must-take first, then a never-enter, then
-    // each tier in turn. A 0 therefore outranks everything, including any number of 7s
-    // in the way, and among routes tied on 0s the one with fewest 7s wins. Tier 4 is
-    // absent because neutral rooms should never decide anything.
-    private static readonly int[] TierComparisonOrder = { 0, 7, 1, 6, 2, 5, 3 };
+    // Weight by distance from neutral, an order of magnitude per step: tier 3 and 5 are
+    // one away, 2 and 6 are two, 1 is three. Quality then beats quantity at any count a
+    // floor can actually hold - two tier-1s outrank six tier-2s - without the blindness
+    // of a strict ordering, where one good reward would excuse any number of bad rooms.
+    private static readonly int[] TierWeights = { 0, 100, 10, 1, 0, -1, -10, 0 };
 
-    // Positive when route a is preferable to route b
-    private static int CompareRoutes(int[] a, int[] b)
+    private static int WeighTiers(int[] counts)
     {
-        foreach (var tier in TierComparisonOrder)
+        var total = 0;
+        for (var tier = 0; tier < TierCount; tier++)
         {
-            if (a[tier] == b[tier])
-            {
-                continue;
-            }
-
-            return tier < BetterSanctumSettings.NeutralValue
-                ? a[tier].CompareTo(b[tier])
-                : b[tier].CompareTo(a[tier]);
+            total += counts[tier] * TierWeights[tier];
         }
 
-        return 0;
+        return total;
+    }
+
+    // Positive when route a is preferable to route b. The two constraint tiers are
+    // compared first and carry no weight of their own: a must-take outranks everything,
+    // including any number of blocked rooms in the way, and among routes tied on
+    // must-takes the one entering fewest blocked rooms wins.
+    private static int CompareRoutes(int[] a, int[] b)
+    {
+        if (a[BetterSanctumSettings.PrioritizeValue] != b[BetterSanctumSettings.PrioritizeValue])
+        {
+            return a[BetterSanctumSettings.PrioritizeValue].CompareTo(b[BetterSanctumSettings.PrioritizeValue]);
+        }
+
+        if (a[BetterSanctumSettings.BlockValue] != b[BetterSanctumSettings.BlockValue])
+        {
+            return b[BetterSanctumSettings.BlockValue].CompareTo(a[BetterSanctumSettings.BlockValue]);
+        }
+
+        return WeighTiers(a).CompareTo(WeighTiers(b));
     }
 
     // Bonuses shift a value towards the good end rather than adding points, so they stay
