@@ -399,7 +399,7 @@ public class BetterSanctumSettings : ISettings
         return prefix != null && FloorsByRoomPrefix.TryGetValue(prefix, out var floor) ? floor : 0;
     }
 
-    public const int CurrentScaleVersion = 4;
+    public const int CurrentScaleVersion = 5;
 
     // The old scales were 1-5 for currency and 1-3 for rooms and afflictions, both with
     // 1 best. Nothing is mapped onto 0 or 7 - promoting a room to "never enter" is a
@@ -438,6 +438,12 @@ public class BetterSanctumSettings : ISettings
                     profile.RoomTiers[roomType] = tier;
                 }
             }
+        }
+
+        if (profile.ScaleVersion < 5 && profile.HideCurrencyBelowTier == 7)
+        {
+            // 7 was the top of the scale and meant "hide nothing" until 8 was added
+            profile.HideCurrencyBelowTier = BlockValue;
         }
 
         profile.ScaleVersion = CurrentScaleVersion;
@@ -557,7 +563,7 @@ public class ProfileContent
 
     // Superseded by RunType. Read once by MigrateProfile, unused after.
     public bool DuplicateRun = false;
-    public int HideCurrencyBelowTier = 7;
+    public int HideCurrencyBelowTier = BetterSanctumSettings.BlockValue;
 
     public Dictionary<string, int> CurrencyTiers = new()
     {
