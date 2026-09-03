@@ -346,6 +346,37 @@ public class BetterSanctumSettings : ISettings
     public const int PrioritizeValue = 0;
     public const int NeutralValue = 4;
     public const int BlockValue = 8;
+    // Fight rooms are graded on how much resolve they tend to cost, reward rooms on what
+    // they hand you. Boss and Final sit at neutral deliberately: they are in the last
+    // layer, which every route passes through, so their value cannot separate two routes.
+    // Deferral is mildly positive rather than neutral - it is the only room type that
+    // carries currency, and the currency itself is counted separately.
+    public static readonly IReadOnlyDictionary<string, int> DefaultRoomTiers = new Dictionary<string, int>
+    {
+        // Fight rooms
+        ["Explore"] = 2,
+        ["Maze"] = 3,
+        ["Puzzle"] = 3,
+        ["Gauntlet"] = 3,
+        ["Lair"] = 4,
+        ["Vault"] = 4,
+        ["Boss"] = 4,
+        ["Miniboss"] = 5,
+        ["Arena"] = 6,
+
+        // Reward rooms
+        ["Merchant"] = 2,
+        ["BoonFountain"] = 2,
+        ["RainbowFountain"] = 2,
+        ["Deferral"] = 3,
+        ["Fountain"] = 3,
+        ["Treasure"] = 3,
+        ["TreasureMinor"] = 4,
+        ["Deal"] = 4,
+        ["Final"] = 4,
+        ["CurseFountain"] = 6,
+    };
+
     public const int RunTypeNormal = 0;
     public const int RunTypeHourOfDivinity = 1;
     public const int RunTypeGildedChalice = 2;
@@ -368,7 +399,7 @@ public class BetterSanctumSettings : ISettings
         return prefix != null && FloorsByRoomPrefix.TryGetValue(prefix, out var floor) ? floor : 0;
     }
 
-    public const int CurrentScaleVersion = 3;
+    public const int CurrentScaleVersion = 4;
 
     // The old scales were 1-5 for currency and 1-3 for rooms and afflictions, both with
     // 1 best. Nothing is mapped onto 0 or 7 - promoting a room to "never enter" is a
@@ -393,6 +424,20 @@ public class BetterSanctumSettings : ISettings
         {
             // The old checkbox meant Hour of Divinity specifically
             profile.RunType = RunTypeHourOfDivinity;
+        }
+
+        if (profile.ScaleVersion < 4)
+        {
+            // Seed only the room types the profile never had an entry for. Upstream set
+            // four and left the rest implicitly neutral, which was minimalism rather than
+            // a judgement, so filling them in does not overwrite anything you chose.
+            foreach (var (roomType, tier) in DefaultRoomTiers)
+            {
+                if (!profile.RoomTiers.ContainsKey(roomType))
+                {
+                    profile.RoomTiers[roomType] = tier;
+                }
+            }
         }
 
         profile.ScaleVersion = CurrentScaleVersion;
@@ -517,13 +562,7 @@ public class ProfileContent
         ["Exalted Orbs"] = 2,
     };
 
-    public Dictionary<string, int> RoomTiers = new()
-    {
-        ["Explore"] = 2,
-        ["Merchant"] = 2,
-        ["CurseFountain"] = 6,
-        ["Arena"] = 6,
-    };
+    public Dictionary<string, int> RoomTiers = new(BetterSanctumSettings.DefaultRoomTiers);
 
     public Dictionary<string, int> AfflictionTiers = new()
     {
