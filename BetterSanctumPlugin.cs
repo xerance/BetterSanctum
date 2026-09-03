@@ -221,13 +221,32 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
         var bestRoute = new HashSet<(int, int)>();
         if (Settings.EnablePathfinding && Settings.BestPathFrameThickness > 0 && roomsByLayer.Count > 0)
         {
+            // Layer 0 slot 0 can be an empty slot, so scan for the first real room
+            var floor = 0;
+            foreach (var probeLayer in roomsByLayer)
+            {
+                foreach (var probeRoom in probeLayer)
+                {
+                    floor = GetCurrentFloor(probeRoom);
+                    if (floor != 0)
+                    {
+                        break;
+                    }
+                }
+
+                if (floor != 0)
+                {
+                    break;
+                }
+            }
+
             var routeValue = new Dictionary<(int, int), (int MustCount, int Score, int Next)>();
             for (var layerIndex = roomsByLayer.Count - 1; layerIndex >= 0; layerIndex--)
             {
                 var roomLayer = roomsByLayer[layerIndex];
                 for (var roomIndex = 0; roomIndex < roomLayer.Count; roomIndex++)
                 {
-                    if (EvaluateRoom(roomLayer[roomIndex]) is not { } own)
+                    if (EvaluateRoom(roomLayer[roomIndex], floor) is not { } own)
                     {
                         continue;
                     }
@@ -537,7 +556,51 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
         return parts.Count > 0 ? $"{type.Name}({string.Join(" ", parts)})" : type.Name;
     }
 
-    private (int MustCount, int Score)? EvaluateRoom(SanctumRoomElement room)
+    // 0 when the floor cannot be identified, which disables every floor-based rule
+    private int GetCurrentFloor(SanctumRoomElement room)
+    {
+        var id = room.Data?.FightRoom?.Id ?? room.Data?.RewardRoom?.Id;
+        return id == null ? 0 : BetterSanctumSettings.GetFloorForRoomPrefix(id.Split('_')[0]);
+    }
+
+    // Folds the run type and floor into the room type's value. A relic that makes a room
+    // type pointless flattens it to neutral; floor rules nudge it by the bias strength.
+    // Neither ever overrides an explicit 0 or 7 - those are your decisions, not context.
+    private int AdjustRoomValue(int value, string roomTypeId, int floor)
+    {
+        if (value is BetterSanctumSettings.PrioritizeValue or BetterSanctumSettings.BlockValue)
+        {
+            return value;
+        }
+
+        var runType = Settings.RunType;
+        if (runType == BetterSanctumSettings.RunTypeHourOfDivinity && roomTypeId == "BoonFountain" ||
+            runType == BetterSanctumSettings.RunTypeGildedChalice && roomTypeId == "Fountain")
+        {
+            // No boons to gain, or no resolve to recover: the room has nothing to offer.
+            // CurseFountain is deliberately untouched - it stays bad on its own merits.
+            return BetterSanctumSettings.NeutralValue;
+        }
+
+        var bias = Settings.ContextBiasStrength.Value;
+        if (bias == 0)
+        {
+            return value;
+        }
+
+        // Deals gate the larger rewards late, and coins matter early - but only when
+        // boons are buyable, which Hour of Divinity rules out.
+        var favoured = floor >= 3
+            ? roomTypeId == "Deal"
+            : floor >= 1 &&
+              runType != BetterSanctumSettings.RunTypeHourOfDivinity &&
+              roomTypeId is "Treasure" or "Merchant";
+
+        // Lower is better on this scale, and 1 is as good as a weight gets
+        return favoured ? Math.Max(value - bias, 1) : value;
+    }
+
+    private (int MustCount, int Score)? EvaluateRoom(SanctumRoomElement room, int floor)
     {
         var mustCount = 0;
         var score = 0;
@@ -564,6 +627,11 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
                 slotScore += Settings.ThirdSlotBonus.Value;
             }
 
+            if (slotScore > 0 && floor >= 3)
+            {
+                slotScore += Settings.ContextBiasStrength.Value;
+            }
+
             if (bestSlotScore == null || slotScore > bestSlotScore)
             {
                 bestSlotScore = slotScore;
@@ -579,7 +647,7 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
                 continue;
             }
 
-            var value = Settings.GetRoomTier(roomTypeId);
+            var value = AdjustRoomValue(Settings.GetRoomTier(roomTypeId), roomTypeId, floor);
             if (value == BetterSanctumSettings.BlockValue)
             {
                 return null;

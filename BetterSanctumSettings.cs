@@ -209,10 +209,10 @@ public class BetterSanctumSettings : ISettings
                 // Part of the profile rather than a display preference: both follow the
                 // run strategy, and the tier cutoff is meaningless without the tiers it
                 // is counted against.
-                var duplicateRun = profile.DuplicateRun;
-                if (ImGui.Checkbox("Duplicate run", ref duplicateRun))
+                var runType = profile.RunType;
+                if (ImGui.Combo("Run type", ref runType, RunTypeNames, RunTypeNames.Length))
                 {
-                    profile.DuplicateRun = duplicateRun;
+                    profile.RunType = runType;
                 }
 
                 var hideCurrencyBelowTier = profile.HideCurrencyBelowTier;
@@ -346,7 +346,29 @@ public class BetterSanctumSettings : ISettings
     public const int PrioritizeValue = 0;
     public const int NeutralValue = 4;
     public const int BlockValue = 7;
-    public const int CurrentScaleVersion = 2;
+    public const int RunTypeNormal = 0;
+    public const int RunTypeHourOfDivinity = 1;
+    public const int RunTypeGildedChalice = 2;
+
+    public static readonly string[] RunTypeNames = { "Normal", "The Hour of Divinity", "The Gilded Chalice" };
+
+    // Floors are identified by the prefix on their room ids; the area name does not
+    // track the floor. Nave and Crypt are the last two in some order, which no rule
+    // distinguishes, so their relative order does not matter.
+    private static readonly Dictionary<string, int> FloorsByRoomPrefix = new()
+    {
+        ["Cellar"] = 1,
+        ["Vaults"] = 2,
+        ["Nave"] = 3,
+        ["Crypt"] = 4,
+    };
+
+    public static int GetFloorForRoomPrefix(string prefix)
+    {
+        return prefix != null && FloorsByRoomPrefix.TryGetValue(prefix, out var floor) ? floor : 0;
+    }
+
+    public const int CurrentScaleVersion = 3;
 
     // 1 => +3 ... 6 => -2. The constraint values carry no weight of their own.
     public static int ScoreOf(int value)
@@ -373,6 +395,12 @@ public class BetterSanctumSettings : ISettings
         profile.AfflictionTiers = profile.AfflictionTiers.ToDictionary(x => x.Key, x => MigrateTriTier(x.Value));
         // 5 was the old maximum and meant "hide nothing", which is 7 on the new scale
         profile.HideCurrencyBelowTier = profile.HideCurrencyBelowTier >= 5 ? BlockValue : MigrateCurrencyTier(profile.HideCurrencyBelowTier);
+        if (profile.ScaleVersion < 3 && profile.DuplicateRun)
+        {
+            // The old checkbox meant Hour of Divinity specifically
+            profile.RunType = RunTypeHourOfDivinity;
+        }
+
         profile.ScaleVersion = CurrentScaleVersion;
     }
 
@@ -410,7 +438,10 @@ public class BetterSanctumSettings : ISettings
     // Read off the active profile, so the plugin keeps reading Settings.X unchanged.
     // JsonIgnore, or Newtonsoft would write these back out alongside the profiles.
     [JsonIgnore]
-    public bool DuplicateRun => GetCurrentProfile().profile.DuplicateRun;
+    public bool DuplicateRun => GetCurrentProfile().profile.RunType != RunTypeNormal;
+
+    [JsonIgnore]
+    public int RunType => GetCurrentProfile().profile.RunType;
 
     [JsonIgnore]
     public int HideCurrencyBelowTier => GetCurrentProfile().profile.HideCurrencyBelowTier;
@@ -457,6 +488,9 @@ public class BetterSanctumSettings : ISettings
     public RangeNode<int> AfflictionWeightMultiplier { get; set; } = new RangeNode<int>(1, 0, 10);
     public RangeNode<int> ThirdSlotBonus { get; set; } = new RangeNode<int>(0, 0, 5);
 
+    // Scales every floor and run-type adjustment; 0 disables the context layer
+    public RangeNode<int> ContextBiasStrength { get; set; } = new RangeNode<int>(1, 0, 5);
+
     public Dictionary<string, ProfileContent> Profiles = new Dictionary<string, ProfileContent>
     {
         ["Default"] = ProfileContent.CreateNew()
@@ -476,6 +510,9 @@ public class ProfileContent
     // current by CreateNew.
     public int ScaleVersion = 1;
 
+    public int RunType = BetterSanctumSettings.RunTypeNormal;
+
+    // Superseded by RunType. Read once by MigrateProfile, unused after.
     public bool DuplicateRun = false;
     public int HideCurrencyBelowTier = 7;
 
