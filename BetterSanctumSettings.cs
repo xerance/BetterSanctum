@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using ExileCore.PoEMemory;
 using ExileCore.Shared.Helpers;
 using ExileCore.Shared.Interfaces;
 using ExileCore.Shared.Nodes;
@@ -47,6 +48,8 @@ public class BetterSanctumSettings : ISettings
         "Armourer's Scraps",
         "Orbs of Transmutation",
         "Orbs of Augmentation",
+        "Fracturing Orbs",
+        "Volatile Vaal Orbs",
     };
 
     public readonly IReadOnlyList<string> CurrencyDuplicate = new List<string>
@@ -181,7 +184,7 @@ public class BetterSanctumSettings : ISettings
                 if (ImGui.TreeNode("Currency tiering"))
                 {
                     ImGui.InputTextWithHint("##CurrencyFilter", "Filter", ref currencyFilter, 100);
-                    foreach (var type in CurrencyTypes.Where(t => t.Contains(currencyFilter, StringComparison.InvariantCultureIgnoreCase)))
+                    foreach (var type in GetKnownCurrencyTypes().Where(t => t.Contains(currencyFilter, StringComparison.InvariantCultureIgnoreCase)))
                     {
                         for (int order = 0; order < 3; order++)
                         {
@@ -236,6 +239,23 @@ public class BetterSanctumSettings : ISettings
                 }
             }
         };
+    }
+
+    // The set of reward currencies is defined by the game's SanctumDeferredRewardCategory table,
+    // which is also what room rewards report as their CurrencyName. Reading it here keeps the
+    // tiering keys in sync with the lookup keys automatically. The static list below is only a
+    // fallback for when the settings are drawn before the game files are loaded.
+    private IEnumerable<string> GetKnownCurrencyTypes()
+    {
+        if (RemoteMemoryObject.pTheGame?.Files?.SanctumDeferredRewardCategories?.EntriesList is { Count: > 0 } entries)
+        {
+            return entries
+                .Select(x => x.CurrencyName)
+                .Where(x => !string.IsNullOrWhiteSpace(x))
+                .Distinct();
+        }
+
+        return CurrencyTypes;
     }
 
     private (string profileName, ProfileContent profile) GetCurrentProfile()
