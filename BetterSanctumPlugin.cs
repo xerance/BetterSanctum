@@ -160,7 +160,7 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
         // no normalisation. Walking backwards, each room records the best continuation:
         // more must-take rooms wins, and ties break on the higher total score.
         var bestRoute = new HashSet<(int, int)>();
-        if (Settings.BestPathFrameThickness > 0 && roomsByLayer.Count > 0)
+        if (Settings.EnablePathfinding && Settings.BestPathFrameThickness > 0 && roomsByLayer.Count > 0)
         {
             var routeValue = new Dictionary<(int, int), (int MustCount, int Score, int Next)>();
             for (var layerIndex = roomsByLayer.Count - 1; layerIndex >= 0; layerIndex--)
@@ -262,6 +262,13 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
                                 continue;
                             }
 
+                            // Both ends must be on the route, or a line would hang off it
+                            if (Settings.DrawConnectionLinesOnBestPathOnly &&
+                                !(bestRoute.Contains((layerIndex, roomIndex)) && bestRoute.Contains((layerIndex + 1, index))))
+                            {
+                                continue;
+                            }
+
                             var rightPoint = new Vector2(connectedRoom.GetClientRectCache.Left + 15, connectedRoom.GetClientRectCache.Center.Y);
                             if (tooltipRect.Intersects(new RectangleF(leftPoint.X, Math.Min(leftPoint.Y, rightPoint.Y),
                                     rightPoint.X - leftPoint.X,
@@ -290,14 +297,14 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
                     }
                 }
 
-                if (bestRoute.Contains((layerIndex, roomIndex)))
-                {
-                    Graphics.DrawFrame(room.GetClientRectCache, Settings.BestPathColor, Settings.BestPathFrameThickness.Value);
-                }
-
                 if (room.GetClientRectCache.Intersects(tooltipRect))
                 {
                     continue;
+                }
+
+                if (bestRoute.Contains((layerIndex, roomIndex)))
+                {
+                    Graphics.DrawFrame(room.GetClientRectCache, Settings.BestPathColor, Settings.BestPathFrameThickness.Value);
                 }
 
                 var textTopLeft = room.GetClientRectCache.TopLeft.ToVector2Num();

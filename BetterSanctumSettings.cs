@@ -443,6 +443,8 @@ public class BetterSanctumSettings : ISettings
 
     public RangeNode<int> ConnectionLineThickness { get; set; } = new RangeNode<int>(5, 0, 10);
 
+    public ToggleNode EnablePathfinding { get; set; } = new ToggleNode(true);
+    public ToggleNode DrawConnectionLinesOnBestPathOnly { get; set; } = new ToggleNode(false);
     public ColorNode BestPathColor { get; set; } = new(Color.Cyan);
     public RangeNode<int> BestPathFrameThickness { get; set; } = new RangeNode<int>(4, 0, 10);
 
