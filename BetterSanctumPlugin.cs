@@ -457,12 +457,6 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
 
     }
 
-    // Null means the room cannot be routed through at all.
-    //
-    // Currency scores on its best slot only: the three offers are the same reward at
-    // different timings and you take one, so summing them would count rewards you never
-    // receive. A blocked currency drops that slot rather than the room - a bad offer is
-    // no reason to avoid a room, whereas a bad room type or affliction is.
     // Read by reflection on purpose: several of these are guesses from the ExileCore
     // metadata, and a name that turns out not to exist should report itself as absent
     // rather than stop the plugin compiling.
@@ -558,9 +552,36 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
         return id == null ? 0 : BetterSanctumSettings.GetFloorForRoomPrefix(id.Split('_')[0]);
     }
 
+    // Bonuses shift a value towards the good end rather than adding points, so they stay
+    // meaningful under tier comparison. They never reach 0, which is yours to assign, and
+    // never improve something already at or below neutral.
+    private int AdjustCurrencyValue(int value, int order, int floor)
+    {
+        if (value is BetterSanctumSettings.PrioritizeValue or BetterSanctumSettings.BlockValue ||
+            value >= BetterSanctumSettings.NeutralValue)
+        {
+            return value;
+        }
+
+        var shift = 0;
+        if (order == 2)
+        {
+            // Third slot is the end-of-sanctum deferral, which pays out larger
+            shift += Settings.ThirdSlotBonus.Value;
+        }
+
+        if (floor >= 3)
+        {
+            // Later floors roll higher reward tiers
+            shift += Settings.ContextBiasStrength.Value;
+        }
+
+        return Math.Max(value - shift, 1);
+    }
+
     // Folds the run type and floor into the room type's value. A relic that makes a room
     // type pointless flattens it to neutral; floor rules nudge it by the bias strength.
-    // Neither ever overrides an explicit 0 or 7 - those are your decisions, not context.
+    // Neither ever overrides an explicit 0 or 8 - those are your decisions, not context.
     private int AdjustRoomValue(int value, string roomTypeId, int floor)
     {
         if (value is BetterSanctumSettings.PrioritizeValue or BetterSanctumSettings.BlockValue)
@@ -604,8 +625,8 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
 
     // Distance from neutral, an order of magnitude per step, with 7 an outsized penalty
     // rather than a bar: it takes more than a tier-1 reward to justify entering one, but
-    // enough value can still buy through. Only 0 stays a true constraint. The last entry
-    // scores the bonus slot, so bonuses are expressed directly in these units.
+    // enough value can still buy through. 0 and 8 are the constraints and score nothing.
+    // The last entry scores the bonus slot, so bonuses use these same units.
     private static readonly int[] TierWeights = { 0, 100, 10, 5, 0, -5, -10, -120, 0, 1 };
 
     private static int WeighTiers(int[] counts)
