@@ -514,6 +514,14 @@ public class BetterSanctumSettings : ISettings
 
     public RangeNode<int> ConnectionLineThickness { get; set; } = new RangeNode<int>(5, 0, 10);
 
+    // In-room overlay, drawn while you play rather than on the floor map
+    public ToggleNode ShowGuardSpawners { get; set; } = new ToggleNode(true);
+    public ToggleNode ShowHazards { get; set; } = new ToggleNode(true);
+    public RangeNode<int> EffectDrawDistance { get; set; } = new RangeNode<int>(100, 20, 300);
+    public ColorNode ActiveSpawnerColor { get; set; } = new(Color.Lime);
+    public ColorNode DormantSpawnerColor { get; set; } = new(Color.LightBlue);
+    public ColorNode HazardColor { get; set; } = new(Color.Red);
+
     public ToggleNode EnablePathfinding { get; set; } = new ToggleNode(true);
 
     // Temporary: dumps raw room data to the log once each time the floor map is opened,

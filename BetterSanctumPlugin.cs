@@ -21,6 +21,13 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
     private readonly Stopwatch _sinceLastReloadStopwatch = Stopwatch.StartNew();
     private Random rndColor = new Random();
     private bool _debugDumpPending = true;
+    private EffectHelper _effectHelper;
+
+    public override bool Initialise()
+    {
+        _effectHelper = new EffectHelper(GameController, Graphics, Settings);
+        return base.Initialise();
+    }
 
     private Vector2 DrawTextWithBackground(string text, Vector2 position, Color color, Color backgroundColor)
     {
@@ -76,6 +83,13 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
             PreventLastOffer();
         }
         
+        // Only inside a Sanctum, and before the floor-map return below, since these draw
+        // in the room rather than on the map
+        if (GameController.Area.CurrentArea.Area.RawName.StartsWith("Sanctum"))
+        {
+            _effectHelper.DrawEffects();
+        }
+
         var floorWindow = GameController.IngameState.IngameUi.SanctumFloorWindow;
         if (!floorWindow.IsVisible)
         {
