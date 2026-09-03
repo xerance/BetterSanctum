@@ -221,7 +221,7 @@ public class BetterSanctumSettings : ISettings
                     profile.HideCurrencyBelowTier = hideCurrencyBelowTier;
                 }
 
-                ImGui.TextDisabled("0 = always route through, 1-3 = good, 4 = neutral, 5-6 = bad, 7 = never route through");
+                ImGui.TextDisabled("0 = always route through, 1-3 = good, 4 = neutral, 5-7 = bad (7 heavily so), 8 = never route through");
 
                 if (ImGui.TreeNode("Currency tiering"))
                 {
@@ -345,7 +345,7 @@ public class BetterSanctumSettings : ISettings
     // 1-3 and 5-6 are ordinary positive and negative weights.
     public const int PrioritizeValue = 0;
     public const int NeutralValue = 4;
-    public const int BlockValue = 7;
+    public const int BlockValue = 8;
     public const int RunTypeNormal = 0;
     public const int RunTypeHourOfDivinity = 1;
     public const int RunTypeGildedChalice = 2;
@@ -464,6 +464,7 @@ public class BetterSanctumSettings : ISettings
     public ColorNode Tier5Color { get; set; } = new(Color.Orange);
     public ColorNode Tier6Color { get; set; } = new(Color.OrangeRed);
     public ColorNode Tier7Color { get; set; } = new(Color.Red);
+    public ColorNode Tier8Color { get; set; } = new(Color.DarkRed);
     public ColorNode EmptyColor { get; set; } = new(Color.Gray);
 
     public RangeNode<int> ConnectionLineThickness { get; set; } = new RangeNode<int>(5, 0, 10);

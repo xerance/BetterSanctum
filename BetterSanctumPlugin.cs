@@ -594,7 +594,7 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
         return favoured ? Math.Max(value - bias, 1) : value;
     }
 
-    private const int TierCount = 8;
+    private const int TierCount = 9;
 
     // Tier counts, plus one trailing slot holding flat bonus points so both sum the same
     // way through the route.
@@ -606,7 +606,7 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
     // rather than a bar: it takes more than a tier-1 reward to justify entering one, but
     // enough value can still buy through. Only 0 stays a true constraint. The last entry
     // scores the bonus slot, so bonuses are expressed directly in these units.
-    private static readonly int[] TierWeights = { 0, 100, 10, 5, 0, -5, -10, -120, 1 };
+    private static readonly int[] TierWeights = { 0, 100, 10, 5, 0, -5, -10, -120, 0, 1 };
 
     private static int WeighTiers(int[] counts)
     {
@@ -619,14 +619,20 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
         return total;
     }
 
-    // Positive when route a is preferable to route b. Must-takes are counted ahead of
-    // everything else and carry no weight of their own, so reaching one outranks any
-    // amount of value, and any number of blocked rooms standing in the way.
+    // Positive when route a is preferable to route b. The two constraint tiers carry no
+    // weight of their own and are compared ahead of the sum: a must-take outranks
+    // everything, including any number of never-enter rooms in the way, and among routes
+    // tied on must-takes the one entering fewest never-enter rooms wins.
     private static int CompareRoutes(int[] a, int[] b)
     {
         if (a[BetterSanctumSettings.PrioritizeValue] != b[BetterSanctumSettings.PrioritizeValue])
         {
             return a[BetterSanctumSettings.PrioritizeValue].CompareTo(b[BetterSanctumSettings.PrioritizeValue]);
+        }
+
+        if (a[BetterSanctumSettings.BlockValue] != b[BetterSanctumSettings.BlockValue])
+        {
+            return b[BetterSanctumSettings.BlockValue].CompareTo(a[BetterSanctumSettings.BlockValue]);
         }
 
         return WeighTiers(a).CompareTo(WeighTiers(b));
@@ -638,19 +644,44 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
     {
         var counts = new int[RouteValueSize];
 
-        int? bestCurrency = null;
+        // The third slot is the end-of-sanctum deferral, which pays out double
+        var slotMultipliers = new[] { 1, 1, 2 };
+
+        // Best slot only - the three offers are one reward at different timings and you
+        // take one - chosen on what the slot is actually worth, multiplier included, so a
+        // doubled tier-2 does not displace a tier-1 taken now.
+        var bestSlotValue = -1;
+        var bestSlotWorth = 0;
+        var bestSlotMultiplier = 1;
         foreach (var (reward, order) in room.GetRoomsWithOrder())
         {
             var value = AdjustCurrencyValue(Settings.GetCurrencyTier(reward.CurrencyName, order), order, floor);
-            if (bestCurrency == null || value < bestCurrency)
+            if (value == BetterSanctumSettings.PrioritizeValue)
             {
-                bestCurrency = value;
+                counts[BetterSanctumSettings.PrioritizeValue]++;
+                continue;
+            }
+
+            // A currency you never want is a reason to skip the offer, not the room
+            if (value == BetterSanctumSettings.BlockValue)
+            {
+                continue;
+            }
+
+            var multiplier = slotMultipliers[Math.Min(order, slotMultipliers.Length - 1)];
+            var worth = TierWeights[value] * multiplier;
+            if (bestSlotValue < 0 || worth > bestSlotWorth)
+            {
+                bestSlotValue = value;
+                bestSlotWorth = worth;
+                bestSlotMultiplier = multiplier;
             }
         }
 
-        if (bestCurrency is { } currencyValue)
+        if (bestSlotValue >= 0)
         {
-            counts[currencyValue]++;
+            // Counting it twice is what doubles its weight
+            counts[bestSlotValue] += bestSlotMultiplier;
         }
 
         foreach (var roomTypeId in new[] { room.Data.FightRoom?.RoomType?.Id, room.Data.RewardRoom?.RoomType?.Id })
@@ -691,6 +722,7 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
             5 => Settings.Tier5Color,
             6 => Settings.Tier6Color,
             7 => Settings.Tier7Color,
+            8 => Settings.Tier8Color,
             _ => Settings.EmptyColor,
         };
     }
