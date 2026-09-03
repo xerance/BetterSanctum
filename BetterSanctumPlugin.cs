@@ -276,8 +276,8 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
                         continue;
                     }
 
-                    var total = new int[TierCount];
-                    for (var tier = 0; tier < TierCount; tier++)
+                    var total = new int[RouteValueSize];
+                    for (var tier = 0; tier < RouteValueSize; tier++)
                     {
                         total[tier] = own[tier] + nextCounts[tier];
                     }
@@ -585,11 +585,10 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
 
         // Deals gate the larger rewards late, and coins matter early - but only when
         // boons are buyable, which Hour of Divinity rules out.
-        var favoured = floor >= 3
-            ? roomTypeId == "Deal"
-            : floor >= 1 &&
-              runType != BetterSanctumSettings.RunTypeHourOfDivinity &&
-              roomTypeId is "Treasure" or "Merchant";
+        // Deals are handled separately, as flat points rather than a tier shift
+        var favoured = floor is >= 1 and <= 2 &&
+                       runType != BetterSanctumSettings.RunTypeHourOfDivinity &&
+                       roomTypeId is "Treasure" or "Merchant";
 
         // Lower is better on this scale, and 1 is as good as a weight gets
         return favoured ? Math.Max(value - bias, 1) : value;
@@ -597,16 +596,22 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
 
     private const int TierCount = 8;
 
-    // Weight by distance from neutral, an order of magnitude per step: tier 3 and 5 are
-    // one away, 2 and 6 are two, 1 is three. Quality then beats quantity at any count a
-    // floor can actually hold - two tier-1s outrank six tier-2s - without the blindness
-    // of a strict ordering, where one good reward would excuse any number of bad rooms.
-    private static readonly int[] TierWeights = { 0, 100, 10, 1, 0, -1, -10, 0 };
+    // Tier counts, plus one trailing slot holding flat bonus points so both sum the same
+    // way through the route.
+    private const int DealLateFloorBonus = 50;
+    private const int BonusIndex = TierCount;
+    private const int RouteValueSize = TierCount + 1;
+
+    // Distance from neutral, an order of magnitude per step, with 7 an outsized penalty
+    // rather than a bar: it takes more than a tier-1 reward to justify entering one, but
+    // enough value can still buy through. Only 0 stays a true constraint. The last entry
+    // scores the bonus slot, so bonuses are expressed directly in these units.
+    private static readonly int[] TierWeights = { 0, 100, 10, 5, 0, -5, -10, -120, 1 };
 
     private static int WeighTiers(int[] counts)
     {
         var total = 0;
-        for (var tier = 0; tier < TierCount; tier++)
+        for (var tier = 0; tier < RouteValueSize; tier++)
         {
             total += counts[tier] * TierWeights[tier];
         }
@@ -614,10 +619,9 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
         return total;
     }
 
-    // Positive when route a is preferable to route b. The two constraint tiers are
-    // compared first and carry no weight of their own: a must-take outranks everything,
-    // including any number of blocked rooms in the way, and among routes tied on
-    // must-takes the one entering fewest blocked rooms wins.
+    // Positive when route a is preferable to route b. Must-takes are counted ahead of
+    // everything else and carry no weight of their own, so reaching one outranks any
+    // amount of value, and any number of blocked rooms standing in the way.
     private static int CompareRoutes(int[] a, int[] b)
     {
         if (a[BetterSanctumSettings.PrioritizeValue] != b[BetterSanctumSettings.PrioritizeValue])
@@ -625,46 +629,14 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
             return a[BetterSanctumSettings.PrioritizeValue].CompareTo(b[BetterSanctumSettings.PrioritizeValue]);
         }
 
-        if (a[BetterSanctumSettings.BlockValue] != b[BetterSanctumSettings.BlockValue])
-        {
-            return b[BetterSanctumSettings.BlockValue].CompareTo(a[BetterSanctumSettings.BlockValue]);
-        }
-
         return WeighTiers(a).CompareTo(WeighTiers(b));
-    }
-
-    // Bonuses shift a value towards the good end rather than adding points, so they stay
-    // meaningful under tier comparison. They never reach 0, which is yours to assign, and
-    // never improve something already at or below neutral.
-    private int AdjustCurrencyValue(int value, int order, int floor)
-    {
-        if (value is BetterSanctumSettings.PrioritizeValue or BetterSanctumSettings.BlockValue ||
-            value >= BetterSanctumSettings.NeutralValue)
-        {
-            return value;
-        }
-
-        var shift = 0;
-        if (order == 2)
-        {
-            // Third slot is the end-of-sanctum deferral, which pays out larger
-            shift += Settings.ThirdSlotBonus.Value;
-        }
-
-        if (floor >= 3)
-        {
-            // Later floors roll higher reward tiers
-            shift += Settings.ContextBiasStrength.Value;
-        }
-
-        return Math.Max(value - shift, 1);
     }
 
     // How many rooms of each tier this room contributes. Currency counts its best slot
     // only, since the three offers are one reward at different timings and you take one.
     private int[] EvaluateRoom(SanctumRoomElement room, int floor)
     {
-        var counts = new int[TierCount];
+        var counts = new int[RouteValueSize];
 
         int? bestCurrency = null;
         foreach (var (reward, order) in room.GetRoomsWithOrder())
@@ -686,6 +658,12 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
             if (roomTypeId != null)
             {
                 counts[AdjustRoomValue(Settings.GetRoomTier(roomTypeId), roomTypeId, floor)]++;
+                if (roomTypeId == "Deal" && floor >= 3)
+                {
+                    // Worth more than a tier-2 reward but less than a tier-1, since the
+                    // terms are unknowable until entered and pay out best late
+                    counts[BonusIndex] += DealLateFloorBonus * Settings.ContextBiasStrength.Value;
+                }
             }
         }
 
