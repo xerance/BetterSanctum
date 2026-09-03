@@ -465,14 +465,16 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
             return "[" + string.Join("|", items.Cast<object>().Select(x => Describe(x, depth + 1))) + "]";
         }
 
-        // These game objects identify themselves through one of a few well known members
+        // Report every identifying member rather than the first one found. Returning
+        // early on Id hid RoomType, which is the member the tiering actually keys on.
+        var parts = new List<string>();
         foreach (var name in new[] { "Id", "ReadableName", "CurrencyName", "RoomType" })
         {
             try
             {
                 if (type.GetProperty(name)?.GetValue(value) is { } inner)
                 {
-                    return $"{type.Name}({name}={Describe(inner, depth + 1)})";
+                    parts.Add($"{name}={Describe(inner, depth + 1)}");
                 }
             }
             catch (Exception)
@@ -481,7 +483,7 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
             }
         }
 
-        return type.Name;
+        return parts.Count > 0 ? $"{type.Name}({string.Join(" ", parts)})" : type.Name;
     }
 
     private (int MustCount, int Score)? EvaluateRoom(SanctumRoomElement room)
