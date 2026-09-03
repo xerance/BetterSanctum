@@ -108,9 +108,29 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
             var dumpPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "room-dump.txt");
             try
             {
+                // Room ids carry the floor name; the area name does not reliably
+                var floorPrefix = "unknown";
+                foreach (var probeLayer in roomsByLayer)
+                {
+                    foreach (var probeRoom in probeLayer)
+                    {
+                        var probeId = probeRoom.Data?.FightRoom?.Id ?? probeRoom.Data?.RewardRoom?.Id;
+                        if (!string.IsNullOrEmpty(probeId))
+                        {
+                            floorPrefix = probeId.Split('_')[0];
+                            break;
+                        }
+                    }
+
+                    if (floorPrefix != "unknown")
+                    {
+                        break;
+                    }
+                }
+
                 var lines = new List<string>
                 {
-                    $"{DateTime.Now:s} area={GameController.Area.CurrentArea.Area.RawName} layers={roomsByLayer.Count}",
+                    $"{DateTime.Now:s} floorPrefix={floorPrefix} area={GameController.Area.CurrentArea.Area.RawName} layers={roomsByLayer.Count}",
                     "WINDOW " + string.Join(", ", DebugWindowMemberNames.Select(name => DescribeMember(floorWindow, name))),
                     "FLOORDATA " + string.Join(", ", DebugWindowMemberNames.Select(name => DescribeMember(floorWindow.FloorData, name))),
                 };
