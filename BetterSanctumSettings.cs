@@ -370,12 +370,6 @@ public class BetterSanctumSettings : ISettings
 
     public const int CurrentScaleVersion = 3;
 
-    // 1 => +3 ... 6 => -2. The constraint values carry no weight of their own.
-    public static int ScoreOf(int value)
-    {
-        return value is PrioritizeValue or BlockValue ? 0 : NeutralValue - value;
-    }
-
     // The old scales were 1-5 for currency and 1-3 for rooms and afflictions, both with
     // 1 best. Nothing is mapped onto 0 or 7 - promoting a room to "never enter" is a
     // decision to make deliberately, not one to inherit from a rescale.
@@ -481,11 +475,6 @@ public class BetterSanctumSettings : ISettings
     public ToggleNode DebugDumpRoomData { get; set; } = new ToggleNode(false);
     public ColorNode BestPathColor { get; set; } = new(Color.Cyan);
     public RangeNode<int> BestPathFrameThickness { get; set; } = new RangeNode<int>(4, 0, 10);
-
-    // All default to no-ops: the per-slot values decide routes until you change these
-    public RangeNode<int> CurrencyWeightMultiplier { get; set; } = new RangeNode<int>(1, 0, 10);
-    public RangeNode<int> RoomWeightMultiplier { get; set; } = new RangeNode<int>(1, 0, 10);
-    public RangeNode<int> AfflictionWeightMultiplier { get; set; } = new RangeNode<int>(1, 0, 10);
     public RangeNode<int> ThirdSlotBonus { get; set; } = new RangeNode<int>(0, 0, 5);
 
     // Scales every floor and run-type adjustment; 0 disables the context layer

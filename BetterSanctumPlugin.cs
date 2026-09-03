@@ -215,9 +215,10 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
 
 
         // Route planning. Sanctum floors are layered and you enter exactly one room per
-        // layer, so every route is the same length and total scores compare directly with
-        // no normalisation. Walking backwards, each room records the best continuation:
-        // more must-take rooms wins, and ties break on the higher total score.
+        // layer, so every route holds the same number of rooms and their tier counts are
+        // directly comparable. Routes are ranked by comparing those counts tier by tier
+        // rather than by summing points, so two tier-1 rewards beat one tier-1 however
+        // much middling filler sits behind it.
         var bestRoute = new HashSet<(int, int)>();
         if (Settings.EnablePathfinding && Settings.BestPathFrameThickness > 0 && roomsByLayer.Count > 0)
         {
@@ -240,26 +241,21 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
                 }
             }
 
-            var routeValue = new Dictionary<(int, int), (int MustCount, int Score, int Next)>();
+            var routeValue = new Dictionary<(int, int), (int[] Counts, int Next)>();
             for (var layerIndex = roomsByLayer.Count - 1; layerIndex >= 0; layerIndex--)
             {
                 var roomLayer = roomsByLayer[layerIndex];
                 for (var roomIndex = 0; roomIndex < roomLayer.Count; roomIndex++)
                 {
-                    if (EvaluateRoom(roomLayer[roomIndex], floor) is not { } own)
-                    {
-                        continue;
-                    }
-
+                    var own = EvaluateRoom(roomLayer[roomIndex], floor);
                     if (layerIndex == roomsByLayer.Count - 1)
                     {
-                        routeValue[(layerIndex, roomIndex)] = (own.MustCount, own.Score, -1);
+                        routeValue[(layerIndex, roomIndex)] = (own, -1);
                         continue;
                     }
 
                     var next = -1;
-                    var nextMustCount = 0;
-                    var nextScore = 0;
+                    int[] nextCounts = null;
                     foreach (var connection in floorWindow.FloorData.RoomLayout[layerIndex][roomIndex])
                     {
                         if (!routeValue.TryGetValue((layerIndex + 1, connection), out var candidate))
@@ -267,23 +263,26 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
                             continue;
                         }
 
-                        if (next < 0 ||
-                            candidate.MustCount > nextMustCount ||
-                            (candidate.MustCount == nextMustCount && candidate.Score > nextScore))
+                        if (nextCounts == null || CompareRoutes(candidate.Counts, nextCounts) > 0)
                         {
                             next = connection;
-                            nextMustCount = candidate.MustCount;
-                            nextScore = candidate.Score;
+                            nextCounts = candidate.Counts;
                         }
                     }
 
-                    // Every way onward is blocked, so this room leads nowhere
+                    // Nothing onward exists, so this room leads nowhere
                     if (next < 0)
                     {
                         continue;
                     }
 
-                    routeValue[(layerIndex, roomIndex)] = (own.MustCount + nextMustCount, own.Score + nextScore, next);
+                    var total = new int[TierCount];
+                    for (var tier = 0; tier < TierCount; tier++)
+                    {
+                        total[tier] = own[tier] + nextCounts[tier];
+                    }
+
+                    routeValue[(layerIndex, roomIndex)] = (total, next);
                 }
             }
 
@@ -308,8 +307,7 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
             }
 
             var routeRoom = -1;
-            var routeMustCount = 0;
-            var routeScore = 0;
+            int[] routeCounts = null;
             if (startLayer < roomsByLayer.Count)
             {
                 foreach (var roomIndex in startCandidates)
@@ -319,13 +317,10 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
                         continue;
                     }
 
-                    if (routeRoom < 0 ||
-                        candidate.MustCount > routeMustCount ||
-                        (candidate.MustCount == routeMustCount && candidate.Score > routeScore))
+                    if (routeCounts == null || CompareRoutes(candidate.Counts, routeCounts) > 0)
                     {
                         routeRoom = roomIndex;
-                        routeMustCount = candidate.MustCount;
-                        routeScore = candidate.Score;
+                        routeCounts = candidate.Counts;
                     }
                 }
             }
@@ -600,89 +595,96 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
         return favoured ? Math.Max(value - bias, 1) : value;
     }
 
-    private (int MustCount, int Score)? EvaluateRoom(SanctumRoomElement room, int floor)
-    {
-        var mustCount = 0;
-        var score = 0;
+    private const int TierCount = 8;
 
-        int? bestSlotScore = null;
+    // Compared outward from the extremes: a must-take first, then a never-enter, then
+    // each tier in turn. A 0 therefore outranks everything, including any number of 7s
+    // in the way, and among routes tied on 0s the one with fewest 7s wins. Tier 4 is
+    // absent because neutral rooms should never decide anything.
+    private static readonly int[] TierComparisonOrder = { 0, 7, 1, 6, 2, 5, 3 };
+
+    // Positive when route a is preferable to route b
+    private static int CompareRoutes(int[] a, int[] b)
+    {
+        foreach (var tier in TierComparisonOrder)
+        {
+            if (a[tier] == b[tier])
+            {
+                continue;
+            }
+
+            return tier < BetterSanctumSettings.NeutralValue
+                ? a[tier].CompareTo(b[tier])
+                : b[tier].CompareTo(a[tier]);
+        }
+
+        return 0;
+    }
+
+    // Bonuses shift a value towards the good end rather than adding points, so they stay
+    // meaningful under tier comparison. They never reach 0, which is yours to assign, and
+    // never improve something already at or below neutral.
+    private int AdjustCurrencyValue(int value, int order, int floor)
+    {
+        if (value is BetterSanctumSettings.PrioritizeValue or BetterSanctumSettings.BlockValue ||
+            value >= BetterSanctumSettings.NeutralValue)
+        {
+            return value;
+        }
+
+        var shift = 0;
+        if (order == 2)
+        {
+            // Third slot is the end-of-sanctum deferral, which pays out larger
+            shift += Settings.ThirdSlotBonus.Value;
+        }
+
+        if (floor >= 3)
+        {
+            // Later floors roll higher reward tiers
+            shift += Settings.ContextBiasStrength.Value;
+        }
+
+        return Math.Max(value - shift, 1);
+    }
+
+    // How many rooms of each tier this room contributes. Currency counts its best slot
+    // only, since the three offers are one reward at different timings and you take one.
+    private int[] EvaluateRoom(SanctumRoomElement room, int floor)
+    {
+        var counts = new int[TierCount];
+
+        int? bestCurrency = null;
         foreach (var (reward, order) in room.GetRoomsWithOrder())
         {
-            var value = Settings.GetCurrencyTier(reward.CurrencyName, order);
-            if (value == BetterSanctumSettings.BlockValue)
+            var value = AdjustCurrencyValue(Settings.GetCurrencyTier(reward.CurrencyName, order), order, floor);
+            if (bestCurrency == null || value < bestCurrency)
             {
-                continue;
-            }
-
-            if (value == BetterSanctumSettings.PrioritizeValue)
-            {
-                mustCount++;
-                continue;
-            }
-
-            var slotScore = BetterSanctumSettings.ScoreOf(value);
-            if (slotScore > 0 && order == 2)
-            {
-                // Third slot is the end-of-sanctum deferral, which pays out larger
-                slotScore += Settings.ThirdSlotBonus.Value;
-            }
-
-            if (slotScore > 0 && floor >= 3)
-            {
-                slotScore += Settings.ContextBiasStrength.Value;
-            }
-
-            if (bestSlotScore == null || slotScore > bestSlotScore)
-            {
-                bestSlotScore = slotScore;
+                bestCurrency = value;
             }
         }
 
-        score += (bestSlotScore ?? 0) * Settings.CurrencyWeightMultiplier.Value;
+        if (bestCurrency is { } currencyValue)
+        {
+            counts[currencyValue]++;
+        }
 
         foreach (var roomTypeId in new[] { room.Data.FightRoom?.RoomType?.Id, room.Data.RewardRoom?.RoomType?.Id })
         {
-            if (roomTypeId == null)
+            if (roomTypeId != null)
             {
-                continue;
-            }
-
-            var value = AdjustRoomValue(Settings.GetRoomTier(roomTypeId), roomTypeId, floor);
-            if (value == BetterSanctumSettings.BlockValue)
-            {
-                return null;
-            }
-
-            if (value == BetterSanctumSettings.PrioritizeValue)
-            {
-                mustCount++;
-            }
-            else
-            {
-                score += BetterSanctumSettings.ScoreOf(value) * Settings.RoomWeightMultiplier.Value;
+                counts[AdjustRoomValue(Settings.GetRoomTier(roomTypeId), roomTypeId, floor)]++;
             }
         }
 
         if (room.Data.RoomEffect?.ReadableName is { } effectName)
         {
-            var value = Settings.GetAfflictionTier(effectName);
-            if (value == BetterSanctumSettings.BlockValue)
-            {
-                return null;
-            }
-
-            if (value == BetterSanctumSettings.PrioritizeValue)
-            {
-                mustCount++;
-            }
-            else
-            {
-                score += BetterSanctumSettings.ScoreOf(value) * Settings.AfflictionWeightMultiplier.Value;
-            }
+            counts[Settings.GetAfflictionTier(effectName)]++;
         }
 
-        return (mustCount, score);
+        return counts;
     }
+
 
     private Color GetAfflictionColor(string effectName) => GetTierColor(Settings.GetAfflictionTier(effectName));
     private Color GetRoomColor(string fightRoomId) => GetTierColor(Settings.GetRoomTier(fightRoomId));
