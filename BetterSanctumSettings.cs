@@ -184,12 +184,19 @@ public class BetterSanctumSettings : ISettings
                 if (ImGui.TreeNode("Currency tiering"))
                 {
                     ImGui.InputTextWithHint("##CurrencyFilter", "Filter", ref currencyFilter, 100);
-                    foreach (var type in GetKnownCurrencyTypes().Where(t => t.Contains(currencyFilter, StringComparison.InvariantCultureIgnoreCase)))
+                    foreach (var type in GetKnownCurrencyTypes())
                     {
                         for (int order = 0; order < 3; order++)
                         {
+                            // Filter against the full label so the slot words are searchable too
+                            var label = $"{type} ({order switch { 0 => "first", 1 => "second", 2 => "third" }})";
+                            if (!MatchesFilter(label, currencyFilter))
+                            {
+                                continue;
+                            }
+
                             var currentValue = GetCurrencyTier(type, order);
-                            if (ImGui.SliderInt($"{type} ({order switch { 0 => "first", 1 => "second", 2 => "third" }})", ref currentValue, 1, 5))
+                            if (ImGui.SliderInt(label, ref currentValue, 1, 5))
                             {
                                 profile.CurrencyTiers[$"{type}/{order}"] = currentValue;
                             }
@@ -245,6 +252,13 @@ public class BetterSanctumSettings : ISettings
     // which is also what room rewards report as their CurrencyName. Reading it here keeps the
     // tiering keys in sync with the lookup keys automatically. The static list below is only a
     // fallback for when the settings are drawn before the game files are loaded.
+    // Space-separated terms, all of which must match, so "chaos second" narrows to one slot.
+    private static bool MatchesFilter(string text, string filter)
+    {
+        return filter.Split(' ', StringSplitOptions.RemoveEmptyEntries)
+            .All(term => text.Contains(term, StringComparison.InvariantCultureIgnoreCase));
+    }
+
     private IEnumerable<string> GetKnownCurrencyTypes()
     {
         if (RemoteMemoryObject.pTheGame?.Files?.SanctumDeferredRewardCategories?.EntriesList is { Count: > 0 } entries)
