@@ -253,7 +253,7 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
             // are choosing from next and its last entry is your current room. Empty at the
             // start of a floor, where every room in layer 0 is a candidate.
             var roomChoices = floorWindow.FloorData.RoomChoices is IEnumerable rawChoices
-                ? rawChoices.Cast<int>().ToList()
+                ? rawChoices.Cast<object>().Select(x => Convert.ToInt32(x)).ToList()
                 : new List<int>();
             var startLayer = roomChoices.Count;
             IEnumerable<int> startCandidates;
@@ -264,7 +264,8 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
             else
             {
                 // Only rooms connected to the current one can be entered next
-                startCandidates = floorWindow.FloorData.RoomLayout[startLayer - 1][roomChoices[startLayer - 1]];
+                startCandidates = floorWindow.FloorData.RoomLayout[startLayer - 1][roomChoices[startLayer - 1]]
+                    .Select(x => (int)x);
             }
 
             var routeRoom = -1;
