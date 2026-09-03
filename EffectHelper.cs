@@ -46,7 +46,7 @@ public class EffectHelper
         foreach (var entity in GetEntities(EntityType.Terrain))
         {
             // Off-screen spawners are noise; the ones that matter are the ones near you
-            if (entity.DistancePlayer >= _settings.EffectDrawDistance)
+            if (entity.DistancePlayer >= _settings.InRoom.EffectDrawDistance)
             {
                 continue;
             }
@@ -63,11 +63,11 @@ public class EffectHelper
 
             if (isActive)
             {
-                DrawHazard("Spawner", position, entity.PosNum, 60.0f, 4, _settings.ActiveSpawnerColor);
+                DrawHazard("Spawner", position, entity.PosNum, 60.0f, 4, _settings.InRoom.ActiveSpawnerColor);
             }
             else
             {
-                DrawHazard(" + ", position, entity.PosNum, 20.0f, 4, _settings.DormantSpawnerColor);
+                DrawHazard(" + ", position, entity.PosNum, 20.0f, 4, _settings.InRoom.DormantSpawnerColor);
             }
         }
     }
@@ -76,7 +76,7 @@ public class EffectHelper
     {
         foreach (var entity in GetEntities(EntityType.Effect))
         {
-            if (entity.DistancePlayer >= _settings.EffectDrawDistance ||
+            if (entity.DistancePlayer >= _settings.InRoom.EffectDrawDistance ||
                 !entity.Metadata.Contains("/Effects/Effect") ||
                 !entity.TryGetComponent<Animated>(out var animated) ||
                 animated?.BaseAnimatedObjectEntity?.Metadata is not { } metadata)
@@ -85,7 +85,7 @@ public class EffectHelper
             }
 
             var position = RemoteMemoryObject.pTheGame.IngameState.Camera.WorldToScreen(entity.PosNum);
-            var color = _settings.HazardColor;
+            var color = _settings.InRoom.HazardColor;
 
             if (metadata.Contains("League_Sanctum/hazards/hazard_meteor"))
             {
@@ -109,12 +109,12 @@ public class EffectHelper
 
     public void DrawEffects()
     {
-        if (_settings.ShowGuardSpawners)
+        if (_settings.InRoom.ShowGuardSpawners)
         {
             DrawSpawners();
         }
 
-        if (_settings.ShowHazards)
+        if (_settings.InRoom.ShowHazards)
         {
             DrawHazards();
         }

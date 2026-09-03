@@ -142,7 +142,7 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
             }
         }
 
-        if (Settings.DebugDumpRoomData && _debugDumpPending)
+        if (Settings.Debug.DebugDumpRoomData && _debugDumpPending)
         {
             _debugDumpPending = false;
             // Next to Loader.exe rather than the plugin folder: DirectoryFullName is not
@@ -196,7 +196,7 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
             }
         }
 
-        if (Settings.ConnectionLineThickness > 0)
+        if (Settings.MapDisplay.ConnectionLineThickness > 0)
         {
             for (var layerIndex = roomsByLayer.Count - 2; layerIndex >= 0; layerIndex--)
             {
@@ -262,7 +262,7 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
         // rather than by summing points, so two tier-1 rewards beat one tier-1 however
         // much middling filler sits behind it.
         var bestRoute = new HashSet<(int, int)>();
-        if (Settings.EnablePathfinding && Settings.BestPathFrameThickness > 0 && roomsByLayer.Count > 0)
+        if (Settings.Routing.EnablePathfinding && Settings.Routing.BestPathFrameThickness > 0 && roomsByLayer.Count > 0)
         {
             var floor = BetterSanctumSettings.GetFloorForRoomPrefix(_lastKnownFloorPrefix);
 
@@ -367,7 +367,7 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
             {
                 var room = roomLayer[roomIndex];
                 var fightRoomId = room.Data.FightRoom?.RoomType?.Id;
-                if (fightRoomId != null && Settings.ConnectionLineThickness > 0)
+                if (fightRoomId != null && Settings.MapDisplay.ConnectionLineThickness > 0)
                 {
                     var connections = floorWindow.FloorData.RoomLayout[layerIndex][roomIndex];
                     var connectedRoomData = connections.Select(index => (index, tierMap.GetValueOrDefault((layerIndex + 1, index))))
@@ -394,19 +394,19 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
 
                             var leftPointOffset = new Vector2(0, (rightPoint.Y - leftPoint.Y) * 0.25f);
                             var overlapOffsetVector = new Vector2(0,
-                                Settings.ConnectionLineThickness * (0.5f + 0.5f * (rightPoint - leftPoint).Length() / (rightPoint.X - leftPoint.X)));
+                                Settings.MapDisplay.ConnectionLineThickness * (0.5f + 0.5f * (rightPoint - leftPoint).Length() / (rightPoint.X - leftPoint.X)));
                             Graphics.DrawLine(leftPoint + leftPointOffset - overlapOffsetVector,
                                 rightPoint - leftPointOffset - overlapOffsetVector,
-                                Settings.ConnectionLineThickness,
-                                currencyTier.Any() ? GetTierColor(currencyTier.Min()) : Settings.EmptyColor);
+                                Settings.MapDisplay.ConnectionLineThickness,
+                                currencyTier.Any() ? GetTierColor(currencyTier.Min()) : Settings.TierColors.EmptyColor);
                             Graphics.DrawLine(leftPoint + leftPointOffset,
                                 rightPoint - leftPointOffset,
-                                Settings.ConnectionLineThickness,
-                                roomTier is { } ? GetTierColor(roomTier.Value) : Settings.EmptyColor);
+                                Settings.MapDisplay.ConnectionLineThickness,
+                                roomTier is { } ? GetTierColor(roomTier.Value) : Settings.TierColors.EmptyColor);
                             Graphics.DrawLine(leftPoint + leftPointOffset + overlapOffsetVector,
                                 rightPoint - leftPointOffset + overlapOffsetVector,
-                                Settings.ConnectionLineThickness,
-                                afflictionTier is { } ? GetTierColor(afflictionTier.Value) : Settings.EmptyColor);
+                                Settings.MapDisplay.ConnectionLineThickness,
+                                afflictionTier is { } ? GetTierColor(afflictionTier.Value) : Settings.TierColors.EmptyColor);
                         }
                     }
                 }
@@ -418,20 +418,20 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
 
                 if (bestRoute.Contains((layerIndex, roomIndex)))
                 {
-                    Graphics.DrawFrame(room.GetClientRectCache, Settings.BestPathColor, Settings.BestPathFrameThickness.Value);
+                    Graphics.DrawFrame(room.GetClientRectCache, Settings.Routing.BestPathColor, Settings.Routing.BestPathFrameThickness.Value);
                 }
 
                 var textTopLeft = room.GetClientRectCache.TopLeft.ToVector2Num();
                 var lineLocation = textTopLeft;
-                var textSize = DrawTextWithBackground(fightRoomId ?? "??", lineLocation, GetRoomColor(fightRoomId), Settings.BackgroundColor);
+                var textSize = DrawTextWithBackground(fightRoomId ?? "??", lineLocation, GetRoomColor(fightRoomId), Settings.MapDisplay.BackgroundColor);
                 lineLocation.Y += textSize.Y;
                 var rewardRoomId = room.Data.RewardRoom?.RoomType?.Id;
-                textSize = DrawTextWithBackground($"->{rewardRoomId ?? "??"}", lineLocation, GetRoomColor(rewardRoomId), Settings.BackgroundColor);
+                textSize = DrawTextWithBackground($"->{rewardRoomId ?? "??"}", lineLocation, GetRoomColor(rewardRoomId), Settings.MapDisplay.BackgroundColor);
                 lineLocation.Y += textSize.Y;
 
                 if (room.GetRoomsWithOrder() is { Count: > 0 } rewards)
                 {
-                    textSize = DrawTextWithBackground("\nRewards:", lineLocation, Settings.TextColor, Settings.BackgroundColor);
+                    textSize = DrawTextWithBackground("\nRewards:", lineLocation, Settings.MapDisplay.TextColor, Settings.MapDisplay.BackgroundColor);
                     lineLocation.Y += textSize.Y;
                     foreach (var reward in rewards)
                     {
@@ -439,7 +439,7 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
                         var tier = Settings.GetCurrencyTier(currencyName, reward.order);
                         if (tier <= Settings.HideCurrencyBelowTier)
                         {
-                            textSize = DrawTextWithBackground(currencyName, lineLocation, GetTierColor(tier), Settings.BackgroundColor);
+                            textSize = DrawTextWithBackground(currencyName, lineLocation, GetTierColor(tier), Settings.MapDisplay.BackgroundColor);
                             lineLocation.Y += textSize.Y;
                         }
                     }
@@ -448,18 +448,18 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
                 if (room.Data.RoomEffect is { } effect)
                 {
                     var text = "";
-                    if (Settings.ShowEffectId)
+                    if (Settings.MapDisplay.ShowEffectId)
                     {
                         text += $"{effect.Id}\n";
                     }
 
                     var effectName = effect.ReadableName;
-                    if (Settings.ShowEffectName)
+                    if (Settings.MapDisplay.ShowEffectName)
                     {
                         text += $"{effectName}\n";
                     }
 
-                    if (Settings.ShowEffectDescription)
+                    if (Settings.MapDisplay.ShowEffectDescription)
                     {
                         var maxWidth = room.GetClientRectCache.Width;
                         var splitDescription = effect.Description.Split(" ").Aggregate(new List<string> { "" }, (l, i) =>
@@ -474,7 +474,7 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
                         text += $"{string.Join("\n", splitDescription)}\n";
                     }
 
-                    textSize = DrawTextWithBackground(text, lineLocation, GetAfflictionColor(effectName), Settings.BackgroundColor);
+                    textSize = DrawTextWithBackground(text, lineLocation, GetAfflictionColor(effectName), Settings.MapDisplay.BackgroundColor);
                     lineLocation.Y += textSize.Y;
                 }
             }
@@ -585,7 +585,7 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
         if (floor >= 3)
         {
             // Later floors roll higher reward tiers
-            shift += Settings.ContextBiasStrength.Value;
+            shift += Settings.Routing.ContextBiasStrength.Value;
         }
 
         return Math.Max(value - shift, 1);
@@ -610,7 +610,7 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
             return BetterSanctumSettings.NeutralValue;
         }
 
-        var bias = Settings.ContextBiasStrength.Value;
+        var bias = Settings.Routing.ContextBiasStrength.Value;
         if (bias == 0)
         {
             return value;
@@ -726,7 +726,7 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
                 {
                     // Worth more than a tier-2 reward but less than a tier-1, since the
                     // terms are unknowable until entered and pay out best late
-                    counts[BonusIndex] += DealLateFloorBonus * Settings.ContextBiasStrength.Value;
+                    counts[BonusIndex] += DealLateFloorBonus * Settings.Routing.ContextBiasStrength.Value;
                 }
             }
         }
@@ -747,16 +747,16 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
     {
         return value switch
         {
-            0 => Settings.Tier0Color,
-            1 => Settings.Tier1Color,
-            2 => Settings.Tier2Color,
-            3 => Settings.Tier3Color,
-            4 => Settings.Tier4Color,
-            5 => Settings.Tier5Color,
-            6 => Settings.Tier6Color,
-            7 => Settings.Tier7Color,
-            8 => Settings.Tier8Color,
-            _ => Settings.EmptyColor,
+            0 => Settings.TierColors.Tier0Color,
+            1 => Settings.TierColors.Tier1Color,
+            2 => Settings.TierColors.Tier2Color,
+            3 => Settings.TierColors.Tier3Color,
+            4 => Settings.TierColors.Tier4Color,
+            5 => Settings.TierColors.Tier5Color,
+            6 => Settings.TierColors.Tier6Color,
+            7 => Settings.TierColors.Tier7Color,
+            8 => Settings.TierColors.Tier8Color,
+            _ => Settings.TierColors.EmptyColor,
         };
     }
 }

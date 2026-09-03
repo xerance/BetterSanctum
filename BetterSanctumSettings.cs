@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using ExileCore.PoEMemory;
+using ExileCore.Shared.Attributes;
 using ExileCore.Shared.Helpers;
 using ExileCore.Shared.Interfaces;
 using ExileCore.Shared.Nodes;
@@ -194,6 +195,8 @@ public class BetterSanctumSettings : ISettings
                     CurrentProfile = newProfileName;
                 }
 
+                Hint("A profile holds the tier values, the run type and the currency cutoff. Colours and display settings are shared across all profiles.");
+
                 // Deleting the last profile would leave nothing to fall back to
                 if (Profiles.Count > 1)
                 {
@@ -215,16 +218,26 @@ public class BetterSanctumSettings : ISettings
                     profile.RunType = runType;
                 }
 
+                Hint("Both relics duplicate the final reward, so either marks the offers not worth taking." +
+                     "\n\nHour of Divinity blocks boons: BoonFountain drops to neutral and the early Treasure and Merchant bias is dropped." +
+                     "\nGilded Chalice blocks resolve recovery: Fountain drops to neutral. CurseFountain is never adjusted.");
+
                 var hideCurrencyBelowTier = profile.HideCurrencyBelowTier;
                 if (ImGui.SliderInt("Hide currency below tier", ref hideCurrencyBelowTier, PrioritizeValue, BlockValue))
                 {
                     profile.HideCurrencyBelowTier = hideCurrencyBelowTier;
                 }
 
+                Hint("Currencies rated worse than this are left out of the room text on the map. It does not affect routing.");
+
                 ImGui.TextDisabled("0 = always route through, 1-3 = good, 4 = neutral, 5-7 = bad (7 heavily so), 8 = never route through");
+                Hint("Below 4 adds to a route, above 4 subtracts, and the further from 4 the more it counts." +
+                     "\nWeights: 1 = +100, 2 = +10, 3 = +5, 5 = -5, 6 = -10, 7 = -120." +
+                     "\n0 and 8 are absolute: a 0 is always routed to, an 8 never is unless a 0 lies beyond it.");
 
                 if (ImGui.TreeNode("Currency tiering"))
                 {
+                    ImGui.TextDisabled("Rated per reward slot. Only the best slot of a room counts, and the third slot counts twice since it pays double.");
                     ImGui.InputTextWithHint("##CurrencyFilter", "Filter", ref currencyFilter, 100);
                     var (currencyTypes, fromGameFiles) = GetKnownCurrencyTypes();
                     ImGui.TextDisabled($"{currencyTypes.Count} currencies ({(fromGameFiles ? "from game files" : "fallback list")})");
@@ -252,6 +265,7 @@ public class BetterSanctumSettings : ISettings
 
                 if (ImGui.TreeNode("Room tiering"))
                 {
+                    ImGui.TextDisabled("Applies to both the fight room and the reward room, so a room is counted twice from this one list.");
                     ImGui.InputTextWithHint("##RoomFilter", "Filter", ref roomFilter, 100);
                     foreach (var type in RoomTypes.Where(t => t.Contains(roomFilter, StringComparison.InvariantCultureIgnoreCase)))
                     {
@@ -267,6 +281,7 @@ public class BetterSanctumSettings : ISettings
 
                 if (ImGui.TreeNode("Affliction tiering"))
                 {
+                    ImGui.TextDisabled("Filter matches names and descriptions, and several words all have to match.");
                     ImGui.InputTextWithHint("##AfflictionFilter", "Filter", ref afflictionFilter, 100);
                     // Name and description are searched as one string, so terms can span both
                     foreach (var (type, description) in AfflictionTypes.Where(t => MatchesFilter($"{t.Item1} {t.Item2}", afflictionFilter)))
@@ -449,6 +464,17 @@ public class BetterSanctumSettings : ISettings
         profile.ScaleVersion = CurrentScaleVersion;
     }
 
+    // Hover marker after the control it explains
+    private static void Hint(string text)
+    {
+        ImGui.SameLine();
+        ImGui.TextDisabled("(?)");
+        if (ImGui.IsItemHovered())
+        {
+            ImGui.SetTooltip(text);
+        }
+    }
+
     private (string profileName, ProfileContent profile) GetCurrentProfile()
     {
         var profileName = CurrentProfile != null && Profiles.ContainsKey(CurrentProfile) ? CurrentProfile : Profiles.Keys.FirstOrDefault() ?? "Default";
@@ -500,44 +526,11 @@ public class BetterSanctumSettings : ISettings
 
     public ToggleNode Enable { get; set; } = new ToggleNode(true);
 
-    public ColorNode TextColor { get; set; } = new ColorNode(Color.White);
-    public ColorNode BackgroundColor { get; set; } = new ColorNode(Color.Black with { A = 128 });
-    public ToggleNode ShowEffectId { get; set; } = new ToggleNode(false);
-    public ToggleNode ShowEffectName { get; set; } = new ToggleNode(true);
-    public ToggleNode ShowEffectDescription { get; set; } = new ToggleNode(true);
-
-    // One ramp shared by every axis, so a value reads the same wherever it appears
-    public ColorNode Tier0Color { get; set; } = new(Color.Magenta);
-    public ColorNode Tier1Color { get; set; } = new(Color.Lime);
-    public ColorNode Tier2Color { get; set; } = new(Color.GreenYellow);
-    public ColorNode Tier3Color { get; set; } = new(Color.PaleGreen);
-    public ColorNode Tier4Color { get; set; } = new(Color.White);
-    public ColorNode Tier5Color { get; set; } = new(Color.Orange);
-    public ColorNode Tier6Color { get; set; } = new(Color.OrangeRed);
-    public ColorNode Tier7Color { get; set; } = new(Color.Red);
-    public ColorNode Tier8Color { get; set; } = new(Color.DarkRed);
-    public ColorNode EmptyColor { get; set; } = new(Color.Gray);
-
-    public RangeNode<int> ConnectionLineThickness { get; set; } = new RangeNode<int>(5, 0, 10);
-
-    // In-room overlay, drawn while you play rather than on the floor map
-    public ToggleNode ShowGuardSpawners { get; set; } = new ToggleNode(true);
-    public ToggleNode ShowHazards { get; set; } = new ToggleNode(true);
-    public RangeNode<int> EffectDrawDistance { get; set; } = new RangeNode<int>(100, 20, 300);
-    public ColorNode ActiveSpawnerColor { get; set; } = new(Color.Lime);
-    public ColorNode DormantSpawnerColor { get; set; } = new(Color.LightBlue);
-    public ColorNode HazardColor { get; set; } = new(Color.Red);
-
-    public ToggleNode EnablePathfinding { get; set; } = new ToggleNode(true);
-
-    // Temporary: dumps raw room data to the log once each time the floor map is opened,
-    // to work out how deal rooms expose their terms. Remove once that is settled.
-    public ToggleNode DebugDumpRoomData { get; set; } = new ToggleNode(false);
-    public ColorNode BestPathColor { get; set; } = new(Color.Cyan);
-    public RangeNode<int> BestPathFrameThickness { get; set; } = new RangeNode<int>(4, 0, 10);
-
-    // Scales every floor and run-type adjustment; 0 disables the context layer
-    public RangeNode<int> ContextBiasStrength { get; set; } = new RangeNode<int>(1, 0, 5);
+    public RoutingSettings Routing { get; set; } = new RoutingSettings();
+    public MapDisplaySettings MapDisplay { get; set; } = new MapDisplaySettings();
+    public TierColorSettings TierColors { get; set; } = new TierColorSettings();
+    public InRoomSettings InRoom { get; set; } = new InRoomSettings();
+    public DebugSettings Debug { get; set; } = new DebugSettings();
 
     public Dictionary<string, ProfileContent> Profiles = new Dictionary<string, ProfileContent>
     {
@@ -608,4 +601,104 @@ public class ProfileContent
     {
         return new ProfileContent { ScaleVersion = BetterSanctumSettings.CurrentScaleVersion };
     }
+}
+
+// A short description drawn at the top of a settings group. ExileCore renders the nodes
+// themselves, so this is where the explanation of what a group does has to live.
+public static class SettingsHelp
+{
+    public static CustomNode Block(params string[] lines)
+    {
+        return new CustomNode
+        {
+            DrawDelegate = () =>
+            {
+                foreach (var line in lines)
+                {
+                    ImGui.PushStyleColor(ImGuiCol.Text, Color.Gray.ToImgui());
+                    ImGui.TextWrapped(line);
+                    ImGui.PopStyleColor();
+                }
+
+                ImGui.Separator();
+            }
+        };
+    }
+}
+
+[Submenu(CollapsedByDefault = false)]
+public class RoutingSettings
+{
+    [JsonIgnore]
+    public CustomNode Help { get; set; } = SettingsHelp.Block(
+        "Picks one room per layer from where you stand to the boss and frames it.",
+        "Rooms are counted by tier, then weighted: tier 1 is worth 100, tier 2 is worth 10, tier 3 is worth 5, and the bad half mirrors that. Tier 0 is always routed to and tier 8 never is, unless a 0 lies beyond it.",
+        "Bias strength scales the floor and relic adjustments; set it to 0 to score purely on the tiers you assigned.");
+
+    public ToggleNode EnablePathfinding { get; set; } = new ToggleNode(true);
+    public ColorNode BestPathColor { get; set; } = new(Color.Cyan);
+    public RangeNode<int> BestPathFrameThickness { get; set; } = new RangeNode<int>(4, 0, 10);
+    public RangeNode<int> ContextBiasStrength { get; set; } = new RangeNode<int>(1, 0, 5);
+}
+
+[Submenu(CollapsedByDefault = true)]
+public class MapDisplaySettings
+{
+    [JsonIgnore]
+    public CustomNode Help { get; set; } = SettingsHelp.Block(
+        "Text and connection lines drawn over the Sanctum floor map.",
+        "Each connection carries three stacked lines - currency, room type, affliction - coloured by the best of that kind reachable through it. Set line thickness to 0 to hide them and leave only the route frame.");
+
+    public ColorNode TextColor { get; set; } = new ColorNode(Color.White);
+    public ColorNode BackgroundColor { get; set; } = new ColorNode(Color.Black with { A = 128 });
+    public RangeNode<int> ConnectionLineThickness { get; set; } = new RangeNode<int>(5, 0, 10);
+    public ToggleNode ShowEffectId { get; set; } = new ToggleNode(false);
+    public ToggleNode ShowEffectName { get; set; } = new ToggleNode(true);
+    public ToggleNode ShowEffectDescription { get; set; } = new ToggleNode(true);
+}
+
+[Submenu(CollapsedByDefault = true)]
+public class TierColorSettings
+{
+    [JsonIgnore]
+    public CustomNode Help { get; set; } = SettingsHelp.Block(
+        "One ramp shared by currency, room types and afflictions, so a value reads the same wherever it appears.",
+        "0 always route through, 1-3 good, 4 neutral, 5-7 bad, 8 never route through. Empty colours anything the map has not revealed.");
+
+    public ColorNode Tier0Color { get; set; } = new(Color.Magenta);
+    public ColorNode Tier1Color { get; set; } = new(Color.Lime);
+    public ColorNode Tier2Color { get; set; } = new(Color.GreenYellow);
+    public ColorNode Tier3Color { get; set; } = new(Color.PaleGreen);
+    public ColorNode Tier4Color { get; set; } = new(Color.White);
+    public ColorNode Tier5Color { get; set; } = new(Color.Orange);
+    public ColorNode Tier6Color { get; set; } = new(Color.OrangeRed);
+    public ColorNode Tier7Color { get; set; } = new(Color.Red);
+    public ColorNode Tier8Color { get; set; } = new(Color.DarkRed);
+    public ColorNode EmptyColor { get; set; } = new(Color.Gray);
+}
+
+[Submenu(CollapsedByDefault = true)]
+public class InRoomSettings
+{
+    [JsonIgnore]
+    public CustomNode Help { get; set; } = SettingsHelp.Block(
+        "Drawn in the room you are fighting in, rather than on the floor map.",
+        "Spawners show lime while active and as a small marker while dormant. Hazards circle the meteor and holy beam telegraphs. Draw distance is in world units from your character.");
+
+    public ToggleNode ShowGuardSpawners { get; set; } = new ToggleNode(true);
+    public ToggleNode ShowHazards { get; set; } = new ToggleNode(true);
+    public RangeNode<int> EffectDrawDistance { get; set; } = new RangeNode<int>(100, 20, 300);
+    public ColorNode ActiveSpawnerColor { get; set; } = new(Color.Lime);
+    public ColorNode DormantSpawnerColor { get; set; } = new(Color.LightBlue);
+    public ColorNode HazardColor { get; set; } = new(Color.Red);
+}
+
+[Submenu(CollapsedByDefault = true)]
+public class DebugSettings
+{
+    [JsonIgnore]
+    public CustomNode Help { get; set; } = SettingsHelp.Block(
+        "Writes room-dump.txt beside Loader.exe once each time the floor map is opened, listing the raw data behind every room.");
+
+    public ToggleNode DebugDumpRoomData { get; set; } = new ToggleNode(false);
 }
