@@ -147,21 +147,33 @@ public class BetterSanctumSettings : ISettings
         var currencyFilter = "";
         var roomFilter = "";
         var afflictionFilter = "";
+        var renameBuffer = "";
+        string renameBufferOwner = null;
         TieringNode = new CustomNode
         {
             DrawDelegate = () =>
             {
                 var (profileName, profile) = GetCurrentProfile();
+
+                // The rename box edits a buffer that survives across frames and is only
+                // written back on Enter. Committing every keystroke renamed the profile
+                // out from under the widget, after which each further keystroke consumed
+                // whichever profile had become current.
+                if (renameBufferOwner != profileName)
+                {
+                    renameBufferOwner = profileName;
+                    renameBuffer = profileName;
+                }
+
                 foreach (var key in Profiles.Keys.OrderBy(x => x).ToList())
                 {
                     if (key == profileName)
                     {
-                        ImGui.PushStyleColor(ImGuiCol.Button, Color.Green.ToImgui());
-                        var editedKey = key;
-                        if (ImGui.InputText("Edit current profile name", ref editedKey, 200))
+                        ImGui.PushStyleColor(ImGuiCol.FrameBg, Color.DarkGreen.ToImgui());
+                        if (ImGui.InputText("Current profile (Enter to rename)", ref renameBuffer, 200, ImGuiInputTextFlags.EnterReturnsTrue))
                         {
-                            Profiles[editedKey] = Profiles[key];
-                            Profiles.Remove(key);
+                            RenameProfile(profileName, renameBuffer);
+                            renameBufferOwner = null;
                         }
 
                         ImGui.PopStyleColor();
@@ -179,6 +191,18 @@ public class BetterSanctumSettings : ISettings
                 {
                     var newProfileName = Enumerable.Range(0, 100).Select(x => $"New profile {x}").First(x => !Profiles.ContainsKey(x));
                     Profiles[newProfileName] = new ProfileContent();
+                    CurrentProfile = newProfileName;
+                }
+
+                // Deleting the last profile would leave nothing to fall back to
+                if (Profiles.Count > 1)
+                {
+                    ImGui.SameLine();
+                    if (ImGui.Button($"Delete profile {profileName}##deleteProfile"))
+                    {
+                        Profiles.Remove(profileName);
+                        CurrentProfile = Profiles.Keys.First();
+                    }
                 }
 
                 if (ImGui.TreeNode("Currency tiering"))
@@ -278,6 +302,26 @@ public class BetterSanctumSettings : ISettings
         return (CurrencyTypes, false);
     }
 
+    // Silently ignores names that would collide with or erase another profile:
+    // the old code assigned before removing, so renaming onto an existing name
+    // overwrote that profile's contents.
+    private void RenameProfile(string oldName, string newName)
+    {
+        newName = newName?.Trim();
+        if (string.IsNullOrEmpty(newName) || newName == oldName || Profiles.ContainsKey(newName))
+        {
+            return;
+        }
+
+        if (!Profiles.Remove(oldName, out var content))
+        {
+            return;
+        }
+
+        Profiles[newName] = content;
+        CurrentProfile = newName;
+    }
+
     private (string profileName, ProfileContent profile) GetCurrentProfile()
     {
         var profileName = CurrentProfile != null && Profiles.ContainsKey(CurrentProfile) ? CurrentProfile : Profiles.Keys.FirstOrDefault() ?? "Default";
@@ -285,6 +329,9 @@ public class BetterSanctumSettings : ISettings
         {
             Profiles[profileName] = new ProfileContent();
         }
+
+        // Pin it, so a null or stale CurrentProfile cannot drift to a different profile later
+        CurrentProfile = profileName;
 
         var profile = Profiles[profileName];
         return (profileName, profile);
