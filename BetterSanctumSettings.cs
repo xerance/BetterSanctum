@@ -184,7 +184,9 @@ public class BetterSanctumSettings : ISettings
                 if (ImGui.TreeNode("Currency tiering"))
                 {
                     ImGui.InputTextWithHint("##CurrencyFilter", "Filter", ref currencyFilter, 100);
-                    foreach (var type in GetKnownCurrencyTypes())
+                    var (currencyTypes, fromGameFiles) = GetKnownCurrencyTypes();
+                    ImGui.TextDisabled($"{currencyTypes.Count} currencies ({(fromGameFiles ? "from game files" : "fallback list")})");
+                    foreach (var type in currencyTypes)
                     {
                         for (int order = 0; order < 3; order++)
                         {
@@ -224,9 +226,8 @@ public class BetterSanctumSettings : ISettings
                 if (ImGui.TreeNode("Affliction tiering"))
                 {
                     ImGui.InputTextWithHint("##AfflictionFilter", "Filter", ref afflictionFilter, 100);
-                    foreach (var (type, description) in AfflictionTypes.Where(t =>
-                                 t.Item1.Contains(afflictionFilter, StringComparison.InvariantCultureIgnoreCase) ||
-                                 t.Item2.Contains(afflictionFilter, StringComparison.InvariantCultureIgnoreCase)))
+                    // Name and description are searched as one string, so terms can span both
+                    foreach (var (type, description) in AfflictionTypes.Where(t => MatchesFilter($"{t.Item1} {t.Item2}", afflictionFilter)))
                     {
                         var currentValue = GetAfflictionTier(type);
                         if (ImGui.SliderInt(type, ref currentValue, 1, 3))
@@ -259,17 +260,22 @@ public class BetterSanctumSettings : ISettings
             .All(term => text.Contains(term, StringComparison.InvariantCultureIgnoreCase));
     }
 
-    private IEnumerable<string> GetKnownCurrencyTypes()
+    private (IReadOnlyList<string> Types, bool FromGameFiles) GetKnownCurrencyTypes()
     {
         if (RemoteMemoryObject.pTheGame?.Files?.SanctumDeferredRewardCategories?.EntriesList is { Count: > 0 } entries)
         {
-            return entries
+            var liveTypes = entries
                 .Select(x => x.CurrencyName)
                 .Where(x => !string.IsNullOrWhiteSpace(x))
-                .Distinct();
+                .Distinct()
+                .ToList();
+            if (liveTypes.Count > 0)
+            {
+                return (liveTypes, true);
+            }
         }
 
-        return CurrencyTypes;
+        return (CurrencyTypes, false);
     }
 
     private (string profileName, ProfileContent profile) GetCurrentProfile()
