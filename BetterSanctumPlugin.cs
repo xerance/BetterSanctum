@@ -103,9 +103,9 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
         if (Settings.DebugDumpRoomData && _debugDumpPending)
         {
             _debugDumpPending = false;
-            // To a file rather than the log: a floor is dozens of rooms, which is both
-            // unreadable on the overlay and awkward to copy back out of it.
-            var dumpPath = Path.Combine(DirectoryFullName, "room-dump.txt");
+            // Next to Loader.exe rather than the plugin folder: DirectoryFullName is not
+            // dependable for source-compiled plugins, and the HUD root is easy to find.
+            var dumpPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "room-dump.txt");
             try
             {
                 var lines = new List<string>
@@ -124,11 +124,11 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
                 }
 
                 File.WriteAllLines(dumpPath, lines);
-                LogMessage($"[BetterSanctum] wrote {lines.Count - 1} rooms to {dumpPath}", 10);
+                LogMessage($"[BetterSanctum] wrote {lines.Count - 1} rooms to {dumpPath}", 30);
             }
             catch (Exception e)
             {
-                LogError($"[BetterSanctum] could not write {dumpPath}: {e.Message}", 10);
+                LogError($"[BetterSanctum] could not write {dumpPath}: {e.Message}", 30);
             }
         }
 
