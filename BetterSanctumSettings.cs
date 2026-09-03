@@ -361,6 +361,20 @@ public class BetterSanctumSettings : ISettings
     public const int PrioritizeValue = 0;
     public const int NeutralValue = 4;
     public const int BlockValue = 8;
+    // Bare names apply to every reward slot; a "name/slot" key overrides one slot.
+    public static readonly IReadOnlyDictionary<string, int> DefaultCurrencyTiers = new Dictionary<string, int>
+    {
+        ["Mirrors of Kalandra"] = PrioritizeValue,
+        ["Divine Orbs"] = 1,
+        ["Fracturing Orbs"] = 1,
+        ["Volatile Vaal Orbs"] = 1,
+        ["Chaos Orbs"] = 2,
+        ["Stacked Decks"] = 2,
+        ["Veiled Chaos Orbs"] = 2,
+        ["Orbs of Annulment"] = 2,
+        ["Exalted Orbs"] = 2,
+    };
+
     // Fight rooms are graded on how much resolve they tend to cost, reward rooms on what
     // they hand you. Boss and Final sit at neutral deliberately: they are in the last
     // layer, which every route passes through, so their value cannot separate two routes.
@@ -369,7 +383,7 @@ public class BetterSanctumSettings : ISettings
     public static readonly IReadOnlyDictionary<string, int> DefaultRoomTiers = new Dictionary<string, int>
     {
         // Fight rooms
-        ["Explore"] = 2,
+        ["Explore"] = 3,
         ["Maze"] = 3,
         ["Puzzle"] = 3,
         ["Gauntlet"] = 3,
@@ -414,7 +428,7 @@ public class BetterSanctumSettings : ISettings
         return prefix != null && FloorsByRoomPrefix.TryGetValue(prefix, out var floor) ? floor : 0;
     }
 
-    public const int CurrentScaleVersion = 5;
+    public const int CurrentScaleVersion = 6;
 
     // The old scales were 1-5 for currency and 1-3 for rooms and afflictions, both with
     // 1 best. Nothing is mapped onto 0 or 7 - promoting a room to "never enter" is a
@@ -459,6 +473,29 @@ public class BetterSanctumSettings : ISettings
         {
             // 7 was the top of the scale and meant "hide nothing" until 8 was added
             profile.HideCurrencyBelowTier = BlockValue;
+        }
+
+        if (profile.ScaleVersion < 6)
+        {
+            foreach (var (currency, tier) in DefaultCurrencyTiers)
+            {
+                if (!profile.CurrencyTiers.ContainsKey(currency))
+                {
+                    profile.CurrencyTiers[currency] = tier;
+                }
+            }
+
+            // Only lift entries still holding the value they were shipped with, so a
+            // rating you actually chose is never overwritten by a change of default.
+            if (profile.CurrencyTiers.GetValueOrDefault("Mirrors of Kalandra") == 1)
+            {
+                profile.CurrencyTiers["Mirrors of Kalandra"] = PrioritizeValue;
+            }
+
+            if (profile.RoomTiers.GetValueOrDefault("Explore") == 2)
+            {
+                profile.RoomTiers["Explore"] = 3;
+            }
         }
 
         profile.ScaleVersion = CurrentScaleVersion;
@@ -557,16 +594,7 @@ public class ProfileContent
     public bool DuplicateRun = false;
     public int HideCurrencyBelowTier = BetterSanctumSettings.BlockValue;
 
-    public Dictionary<string, int> CurrencyTiers = new()
-    {
-        ["Mirrors of Kalandra"] = 1,
-        ["Divine Orbs"] = 1,
-        ["Chaos Orbs"] = 2,
-        ["Stacked Decks"] = 2,
-        ["Veiled Chaos Orbs"] = 2,
-        ["Orbs of Annulment"] = 2,
-        ["Exalted Orbs"] = 2,
-    };
+    public Dictionary<string, int> CurrencyTiers = new(BetterSanctumSettings.DefaultCurrencyTiers);
 
     public Dictionary<string, int> RoomTiers = new(BetterSanctumSettings.DefaultRoomTiers);
 
@@ -638,6 +666,7 @@ public class RoutingSettings
     public ToggleNode EnablePathfinding { get; set; } = new ToggleNode(true);
     public ColorNode BestPathColor { get; set; } = new(Color.Cyan);
     public RangeNode<int> BestPathFrameThickness { get; set; } = new RangeNode<int>(4, 0, 10);
+    public RangeNode<int> BestPathLineThickness { get; set; } = new RangeNode<int>(3, 0, 10);
     public RangeNode<int> ContextBiasStrength { get; set; } = new RangeNode<int>(1, 0, 5);
 }
 
@@ -666,7 +695,7 @@ public class TierColorSettings
         "0 always route through, 1-3 good, 4 neutral, 5-7 bad, 8 never route through. Empty colours anything the map has not revealed.");
 
     public ColorNode Tier0Color { get; set; } = new(Color.Magenta);
-    public ColorNode Tier1Color { get; set; } = new(Color.Lime);
+    public ColorNode Tier1Color { get; set; } = new(Color.Cyan);
     public ColorNode Tier2Color { get; set; } = new(Color.GreenYellow);
     public ColorNode Tier3Color { get; set; } = new(Color.PaleGreen);
     public ColorNode Tier4Color { get; set; } = new(Color.White);

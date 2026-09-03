@@ -262,6 +262,7 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
         // rather than by summing points, so two tier-1 rewards beat one tier-1 however
         // much middling filler sits behind it.
         var bestRoute = new HashSet<(int, int)>();
+        var bestRouteOrder = new List<(int Layer, int Room)>();
         if (Settings.Routing.EnablePathfinding && Settings.Routing.BestPathFrameThickness > 0 && roomsByLayer.Count > 0)
         {
             var floor = BetterSanctumSettings.GetFloorForRoomPrefix(_lastKnownFloorPrefix);
@@ -354,7 +355,28 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
             for (var layerIndex = startLayer; routeRoom >= 0 && layerIndex < roomsByLayer.Count; layerIndex++)
             {
                 bestRoute.Add((layerIndex, routeRoom));
+                bestRouteOrder.Add((layerIndex, routeRoom));
                 routeRoom = routeValue[(layerIndex, routeRoom)].Next;
+            }
+        }
+
+        // Join the route up so it reads as a path rather than a row of separate frames
+        if (Settings.Routing.BestPathLineThickness > 0)
+        {
+            for (var step = 1; step < bestRouteOrder.Count; step++)
+            {
+                var from = roomsByLayer[bestRouteOrder[step - 1].Layer][bestRouteOrder[step - 1].Room].GetClientRectCache;
+                var to = roomsByLayer[bestRouteOrder[step].Layer][bestRouteOrder[step].Room].GetClientRectCache;
+                if (from.Intersects(tooltipRect) || to.Intersects(tooltipRect))
+                {
+                    continue;
+                }
+
+                Graphics.DrawLine(
+                    new Vector2(from.Right - 15, from.Center.Y),
+                    new Vector2(to.Left + 15, to.Center.Y),
+                    Settings.Routing.BestPathLineThickness.Value,
+                    Settings.Routing.BestPathColor);
             }
         }
 
