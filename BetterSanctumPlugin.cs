@@ -110,7 +110,9 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
             {
                 var lines = new List<string>
                 {
-                    $"{DateTime.Now:s} area={GameController.Area.CurrentArea.Area.RawName} layers={roomsByLayer.Count}"
+                    $"{DateTime.Now:s} area={GameController.Area.CurrentArea.Area.RawName} layers={roomsByLayer.Count}",
+                    "WINDOW " + string.Join(", ", DebugWindowMemberNames.Select(name => DescribeMember(floorWindow, name))),
+                    "FLOORDATA " + string.Join(", ", DebugWindowMemberNames.Select(name => DescribeMember(floorWindow.FloorData, name))),
                 };
                 for (var layerIndex = 0; layerIndex < roomsByLayer.Count; layerIndex++)
                 {
@@ -407,6 +409,12 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
     // Read by reflection on purpose: several of these are guesses from the ExileCore
     // metadata, and a name that turns out not to exist should report itself as absent
     // rather than stop the plugin compiling.
+    // Floor-window level, to find which rooms are currently choosable
+    private static readonly string[] DebugWindowMemberNames =
+    {
+        "RoomChoices", "Rooms", "RoomData", "RoomDataArray", "RoomName", "Room",
+    };
+
     private static readonly string[] DebugMemberNames =
     {
         "FightRoom", "RewardRoom", "RewardRooms", "RoomEffect",
