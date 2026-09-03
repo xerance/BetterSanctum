@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using ExileCore;
 using ExileCore.PoEMemory.Elements.Sanctum;
@@ -102,16 +103,32 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
         if (Settings.DebugDumpRoomData && _debugDumpPending)
         {
             _debugDumpPending = false;
-            LogMessage($"[BetterSanctum] dumping {roomsByLayer.Count} layers", 10);
-            for (var layerIndex = 0; layerIndex < roomsByLayer.Count; layerIndex++)
+            // To a file rather than the log: a floor is dozens of rooms, which is both
+            // unreadable on the overlay and awkward to copy back out of it.
+            var dumpPath = Path.Combine(DirectoryFullName, "room-dump.txt");
+            try
             {
-                var roomLayer = roomsByLayer[layerIndex];
-                for (var roomIndex = 0; roomIndex < roomLayer.Count; roomIndex++)
+                var lines = new List<string>
                 {
-                    var data = roomsByLayer[layerIndex][roomIndex].Data;
-                    LogMessage($"[BetterSanctum] L{layerIndex}R{roomIndex} " +
-                               string.Join(", ", DebugMemberNames.Select(name => DescribeMember(data, name))), 10);
+                    $"{DateTime.Now:s} area={GameController.Area.CurrentArea.Area.RawName} layers={roomsByLayer.Count}"
+                };
+                for (var layerIndex = 0; layerIndex < roomsByLayer.Count; layerIndex++)
+                {
+                    var roomLayer = roomsByLayer[layerIndex];
+                    for (var roomIndex = 0; roomIndex < roomLayer.Count; roomIndex++)
+                    {
+                        var data = roomLayer[roomIndex].Data;
+                        lines.Add($"L{layerIndex}R{roomIndex} " +
+                                  string.Join(", ", DebugMemberNames.Select(name => DescribeMember(data, name))));
+                    }
                 }
+
+                File.WriteAllLines(dumpPath, lines);
+                LogMessage($"[BetterSanctum] wrote {lines.Count - 1} rooms to {dumpPath}", 10);
+            }
+            catch (Exception e)
+            {
+                LogError($"[BetterSanctum] could not write {dumpPath}: {e.Message}", 10);
             }
         }
 
