@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using ExileCore;
+using ExileCore.PoEMemory.Elements.Sanctum;
 using ExileCore.PoEMemory.MemoryObjects;
 using ExileCore.Shared.Enums;
 using ExileCore.Shared.Helpers;
@@ -153,6 +154,89 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
             }
         }
 
+
+        // Route planning. Sanctum floors are layered and you enter exactly one room per
+        // layer, so every route is the same length and total scores compare directly with
+        // no normalisation. Walking backwards, each room records the best continuation:
+        // more must-take rooms wins, and ties break on the higher total score.
+        var bestRoute = new HashSet<(int, int)>();
+        if (Settings.BestPathFrameThickness > 0 && roomsByLayer.Count > 0)
+        {
+            var routeValue = new Dictionary<(int, int), (int MustCount, int Score, int Next)>();
+            for (var layerIndex = roomsByLayer.Count - 1; layerIndex >= 0; layerIndex--)
+            {
+                var roomLayer = roomsByLayer[layerIndex];
+                for (var roomIndex = 0; roomIndex < roomLayer.Count; roomIndex++)
+                {
+                    if (EvaluateRoom(roomLayer[roomIndex]) is not { } own)
+                    {
+                        continue;
+                    }
+
+                    if (layerIndex == roomsByLayer.Count - 1)
+                    {
+                        routeValue[(layerIndex, roomIndex)] = (own.MustCount, own.Score, -1);
+                        continue;
+                    }
+
+                    var next = -1;
+                    var nextMustCount = 0;
+                    var nextScore = 0;
+                    foreach (var connection in floorWindow.FloorData.RoomLayout[layerIndex][roomIndex])
+                    {
+                        if (!routeValue.TryGetValue((layerIndex + 1, connection), out var candidate))
+                        {
+                            continue;
+                        }
+
+                        if (next < 0 ||
+                            candidate.MustCount > nextMustCount ||
+                            (candidate.MustCount == nextMustCount && candidate.Score > nextScore))
+                        {
+                            next = connection;
+                            nextMustCount = candidate.MustCount;
+                            nextScore = candidate.Score;
+                        }
+                    }
+
+                    // Every way onward is blocked, so this room leads nowhere
+                    if (next < 0)
+                    {
+                        continue;
+                    }
+
+                    routeValue[(layerIndex, roomIndex)] = (own.MustCount + nextMustCount, own.Score + nextScore, next);
+                }
+            }
+
+            var routeRoom = -1;
+            var routeMustCount = 0;
+            var routeScore = 0;
+            for (var roomIndex = 0; roomIndex < roomsByLayer[0].Count; roomIndex++)
+            {
+                if (!routeValue.TryGetValue((0, roomIndex), out var candidate))
+                {
+                    continue;
+                }
+
+                if (routeRoom < 0 ||
+                    candidate.MustCount > routeMustCount ||
+                    (candidate.MustCount == routeMustCount && candidate.Score > routeScore))
+                {
+                    routeRoom = roomIndex;
+                    routeMustCount = candidate.MustCount;
+                    routeScore = candidate.Score;
+                }
+            }
+
+            // routeRoom goes negative at the last layer, ending the walk
+            for (var layerIndex = 0; routeRoom >= 0 && layerIndex < roomsByLayer.Count; layerIndex++)
+            {
+                bestRoute.Add((layerIndex, routeRoom));
+                routeRoom = routeValue[(layerIndex, routeRoom)].Next;
+            }
+        }
+
         for (var layerIndex = 0;
              layerIndex < roomsByLayer.Count;
              layerIndex++)
@@ -193,17 +277,22 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
                             Graphics.DrawLine(leftPoint + leftPointOffset - overlapOffsetVector,
                                 rightPoint - leftPointOffset - overlapOffsetVector,
                                 Settings.ConnectionLineThickness,
-                                currencyTier.Any() ? GetCurrencyColor(currencyTier.Min()) : Settings.EmptyColor);
+                                currencyTier.Any() ? GetTierColor(currencyTier.Min()) : Settings.EmptyColor);
                             Graphics.DrawLine(leftPoint + leftPointOffset,
                                 rightPoint - leftPointOffset,
                                 Settings.ConnectionLineThickness,
-                                roomTier is { } ? GetRoomColor(roomTier.Value) : Settings.EmptyColor);
+                                roomTier is { } ? GetTierColor(roomTier.Value) : Settings.EmptyColor);
                             Graphics.DrawLine(leftPoint + leftPointOffset + overlapOffsetVector,
                                 rightPoint - leftPointOffset + overlapOffsetVector,
                                 Settings.ConnectionLineThickness,
-                                afflictionTier is { } ? GetAfflictionColor(afflictionTier.Value) : Settings.EmptyColor);
+                                afflictionTier is { } ? GetTierColor(afflictionTier.Value) : Settings.EmptyColor);
                         }
                     }
+                }
+
+                if (bestRoute.Contains((layerIndex, roomIndex)))
+                {
+                    Graphics.DrawFrame(room.GetClientRectCache, Settings.BestPathColor, Settings.BestPathFrameThickness.Value);
                 }
 
                 if (room.GetClientRectCache.Intersects(tooltipRect))
@@ -229,7 +318,7 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
                         var tier = Settings.GetCurrencyTier(currencyName, reward.order);
                         if (tier <= Settings.HideCurrencyBelowTier)
                         {
-                            textSize = DrawTextWithBackground(currencyName, lineLocation, GetCurrencyColor(tier), Settings.BackgroundColor);
+                            textSize = DrawTextWithBackground(currencyName, lineLocation, GetTierColor(tier), Settings.BackgroundColor);
                             lineLocation.Y += textSize.Y;
                         }
                     }
@@ -272,38 +361,107 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
 
     }
 
-    private Color GetAfflictionColor(string effectName) => GetAfflictionColor(Settings.GetAfflictionTier(effectName));
-    private Color GetRoomColor(string fightRoomId) => GetRoomColor(Settings.GetRoomTier(fightRoomId));
-
-    private ColorNode GetAfflictionColor(int afflictionTier)
+    // Null means the room cannot be routed through at all.
+    //
+    // Currency scores on its best slot only: the three offers are the same reward at
+    // different timings and you take one, so summing them would count rewards you never
+    // receive. A blocked currency drops that slot rather than the room - a bad offer is
+    // no reason to avoid a room, whereas a bad room type or affliction is.
+    private (int MustCount, int Score)? EvaluateRoom(SanctumRoomElement room)
     {
-        return afflictionTier switch
+        var mustCount = 0;
+        var score = 0;
+
+        int? bestSlotScore = null;
+        foreach (var (reward, order) in room.GetRoomsWithOrder())
         {
-            1 => Settings.Tier1AfflictionColor,
-            2 => Settings.Tier2AfflictionColor,
-            3 => Settings.Tier3AfflictionColor,
-        };
+            var value = Settings.GetCurrencyTier(reward.CurrencyName, order);
+            if (value == BetterSanctumSettings.BlockValue)
+            {
+                continue;
+            }
+
+            if (value == BetterSanctumSettings.PrioritizeValue)
+            {
+                mustCount++;
+                continue;
+            }
+
+            var slotScore = BetterSanctumSettings.ScoreOf(value);
+            if (slotScore > 0 && order == 2)
+            {
+                // Third slot is the end-of-sanctum deferral, which pays out larger
+                slotScore += Settings.ThirdSlotBonus.Value;
+            }
+
+            if (bestSlotScore == null || slotScore > bestSlotScore)
+            {
+                bestSlotScore = slotScore;
+            }
+        }
+
+        score += (bestSlotScore ?? 0) * Settings.CurrencyWeightMultiplier.Value;
+
+        foreach (var roomTypeId in new[] { room.Data.FightRoom?.RoomType?.Id, room.Data.RewardRoom?.RoomType?.Id })
+        {
+            if (roomTypeId == null)
+            {
+                continue;
+            }
+
+            var value = Settings.GetRoomTier(roomTypeId);
+            if (value == BetterSanctumSettings.BlockValue)
+            {
+                return null;
+            }
+
+            if (value == BetterSanctumSettings.PrioritizeValue)
+            {
+                mustCount++;
+            }
+            else
+            {
+                score += BetterSanctumSettings.ScoreOf(value) * Settings.RoomWeightMultiplier.Value;
+            }
+        }
+
+        if (room.Data.RoomEffect?.ReadableName is { } effectName)
+        {
+            var value = Settings.GetAfflictionTier(effectName);
+            if (value == BetterSanctumSettings.BlockValue)
+            {
+                return null;
+            }
+
+            if (value == BetterSanctumSettings.PrioritizeValue)
+            {
+                mustCount++;
+            }
+            else
+            {
+                score += BetterSanctumSettings.ScoreOf(value) * Settings.AfflictionWeightMultiplier.Value;
+            }
+        }
+
+        return (mustCount, score);
     }
 
-    private ColorNode GetCurrencyColor(int currencyTier)
-    {
-        return currencyTier switch
-        {
-            1 => Settings.Tier1CurrencyColor,
-            2 => Settings.Tier2CurrencyColor,
-            3 => Settings.Tier3CurrencyColor,
-            4 => Settings.Tier4CurrencyColor,
-            5 => Settings.Tier5CurrencyColor,
-        };
-    }
+    private Color GetAfflictionColor(string effectName) => GetTierColor(Settings.GetAfflictionTier(effectName));
+    private Color GetRoomColor(string fightRoomId) => GetTierColor(Settings.GetRoomTier(fightRoomId));
 
-    private ColorNode GetRoomColor(int roomTier)
+    private ColorNode GetTierColor(int value)
     {
-        return roomTier switch
+        return value switch
         {
-            1 => Settings.Tier1RoomColor,
-            2 => Settings.Tier2RoomColor,
-            3 => Settings.Tier3RoomColor,
+            0 => Settings.Tier0Color,
+            1 => Settings.Tier1Color,
+            2 => Settings.Tier2Color,
+            3 => Settings.Tier3Color,
+            4 => Settings.Tier4Color,
+            5 => Settings.Tier5Color,
+            6 => Settings.Tier6Color,
+            7 => Settings.Tier7Color,
+            _ => Settings.EmptyColor,
         };
     }
 }
