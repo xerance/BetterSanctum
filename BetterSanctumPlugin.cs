@@ -262,13 +262,6 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
                                 continue;
                             }
 
-                            // Both ends must be on the route, or a line would hang off it
-                            if (Settings.DrawConnectionLinesOnBestPathOnly &&
-                                !(bestRoute.Contains((layerIndex, roomIndex)) && bestRoute.Contains((layerIndex + 1, index))))
-                            {
-                                continue;
-                            }
-
                             var rightPoint = new Vector2(connectedRoom.GetClientRectCache.Left + 15, connectedRoom.GetClientRectCache.Center.Y);
                             if (tooltipRect.Intersects(new RectangleF(leftPoint.X, Math.Min(leftPoint.Y, rightPoint.Y),
                                     rightPoint.X - leftPoint.X,
