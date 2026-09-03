@@ -1,8 +1,6 @@
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.IO;
 using System.Linq;
 using ExileCore;
 using ExileCore.PoEMemory.Elements.Sanctum;
@@ -20,7 +18,6 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
 {
     private readonly Stopwatch _sinceLastReloadStopwatch = Stopwatch.StartNew();
     private Random rndColor = new Random();
-    private bool _debugDumpPending = true;
 
     private Vector2 DrawTextWithBackground(string text, Vector2 position, Color color, Color backgroundColor)
     {
@@ -79,7 +76,6 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
         var floorWindow = GameController.IngameState.IngameUi.SanctumFloorWindow;
         if (!floorWindow.IsVisible)
         {
-            _debugDumpPending = true;
             return;
         }
 
@@ -99,38 +95,6 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
 
         var tierMap = new Dictionary<(int, int), (List<int> CurrencyTier, int? RoomTier, int? AfflictionTier)>();
         var roomsByLayer = floorWindow.RoomsByLayer;
-
-        if (Settings.DebugDumpRoomData && _debugDumpPending)
-        {
-            _debugDumpPending = false;
-            // Next to Loader.exe rather than the plugin folder: DirectoryFullName is not
-            // dependable for source-compiled plugins, and the HUD root is easy to find.
-            var dumpPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "room-dump.txt");
-            try
-            {
-                var lines = new List<string>
-                {
-                    $"{DateTime.Now:s} area={GameController.Area.CurrentArea.Area.RawName} layers={roomsByLayer.Count}"
-                };
-                for (var layerIndex = 0; layerIndex < roomsByLayer.Count; layerIndex++)
-                {
-                    var roomLayer = roomsByLayer[layerIndex];
-                    for (var roomIndex = 0; roomIndex < roomLayer.Count; roomIndex++)
-                    {
-                        var data = roomLayer[roomIndex].Data;
-                        lines.Add($"L{layerIndex}R{roomIndex} " +
-                                  string.Join(", ", DebugMemberNames.Select(name => DescribeMember(data, name))));
-                    }
-                }
-
-                File.WriteAllLines(dumpPath, lines);
-                LogMessage($"[BetterSanctum] wrote {lines.Count - 1} rooms to {dumpPath}", 30);
-            }
-            catch (Exception e)
-            {
-                LogError($"[BetterSanctum] could not write {dumpPath}: {e.Message}", 30);
-            }
-        }
 
         if (Settings.ConnectionLineThickness > 0)
         {
@@ -404,88 +368,6 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
     // different timings and you take one, so summing them would count rewards you never
     // receive. A blocked currency drops that slot rather than the room - a bad offer is
     // no reason to avoid a room, whereas a bad room type or affliction is.
-    // Read by reflection on purpose: several of these are guesses from the ExileCore
-    // metadata, and a name that turns out not to exist should report itself as absent
-    // rather than stop the plugin compiling.
-    private static readonly string[] DebugMemberNames =
-    {
-        "FightRoom", "RewardRoom", "RewardRooms", "RoomEffect",
-        "Reward1", "Reward2", "Reward3",
-        "Cost", "CostStat", "CostMultiplier", "DeferralCategory",
-    };
-
-    private static string DescribeMember(object target, string name)
-    {
-        if (target == null)
-        {
-            return $"{name}=<no data>";
-        }
-
-        var member = target.GetType().GetProperty(name);
-        if (member == null)
-        {
-            return $"{name}=<absent>";
-        }
-
-        try
-        {
-            return $"{name}={Describe(member.GetValue(target), 0)}";
-        }
-        catch (Exception e)
-        {
-            return $"{name}=<{e.GetType().Name}>";
-        }
-    }
-
-    private static string Describe(object value, int depth)
-    {
-        if (value == null)
-        {
-            return "null";
-        }
-
-        if (value is string text)
-        {
-            return text;
-        }
-
-        var type = value.GetType();
-        if (type.IsPrimitive || value is decimal)
-        {
-            return value.ToString();
-        }
-
-        if (depth > 2)
-        {
-            return type.Name;
-        }
-
-        if (value is IEnumerable items)
-        {
-            return "[" + string.Join("|", items.Cast<object>().Select(x => Describe(x, depth + 1))) + "]";
-        }
-
-        // Report every identifying member rather than the first one found. Returning
-        // early on Id hid RoomType, which is the member the tiering actually keys on.
-        var parts = new List<string>();
-        foreach (var name in new[] { "Id", "ReadableName", "CurrencyName", "RoomType" })
-        {
-            try
-            {
-                if (type.GetProperty(name)?.GetValue(value) is { } inner)
-                {
-                    parts.Add($"{name}={Describe(inner, depth + 1)}");
-                }
-            }
-            catch (Exception)
-            {
-                // an unreadable member tells us nothing useful, so try the next one
-            }
-        }
-
-        return parts.Count > 0 ? $"{type.Name}({string.Join(" ", parts)})" : type.Name;
-    }
-
     private (int MustCount, int Score)? EvaluateRoom(SanctumRoomElement room)
     {
         var mustCount = 0;

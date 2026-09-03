@@ -444,10 +444,6 @@ public class BetterSanctumSettings : ISettings
     public RangeNode<int> ConnectionLineThickness { get; set; } = new RangeNode<int>(5, 0, 10);
 
     public ToggleNode EnablePathfinding { get; set; } = new ToggleNode(true);
-
-    // Temporary: dumps raw room data to the log once each time the floor map is opened,
-    // to work out how deal rooms expose their terms. Remove once that is settled.
-    public ToggleNode DebugDumpRoomData { get; set; } = new ToggleNode(false);
     public ColorNode BestPathColor { get; set; } = new(Color.Cyan);
     public RangeNode<int> BestPathFrameThickness { get; set; } = new RangeNode<int>(4, 0, 10);
 
