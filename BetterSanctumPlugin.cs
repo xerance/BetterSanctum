@@ -21,6 +21,9 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
     private readonly Stopwatch _sinceLastReloadStopwatch = Stopwatch.StartNew();
     private Random rndColor = new Random();
     private bool _debugDumpPending = true;
+    // Remembered from the floor map: the reward window can be open when the map is not,
+    // and the area name follows the room you stand in rather than the floor.
+    private string _lastKnownFloorPrefix;
     private EffectHelper _effectHelper;
 
     public override bool Initialise()
@@ -57,22 +60,34 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
 
         var dupOffer = sanctumOfferWindow.Children.Where(x => Settings.CurrencyDuplicate.Any(y => x.Children[1].Text.Contains(y)));
         var noDupOffer = sanctumOfferWindow.Children.Where(x => Settings.CurrencyDuplicate.Any(y => !x.Children[1].Text.Contains(y)));
-        var floorFinalChest = GameController.EntityListWrapper.ValidEntitiesByType[EntityType.Chest];
+        var entitiesByType = GameController.EntityListWrapper.ValidEntitiesByType;
+        var floorFinalChest = entitiesByType.TryGetValue(EntityType.Chest, out var chests)
+            ? chests
+            : Enumerable.Empty<Entity>();
 
         foreach (var offer in dupOffer)
         {
             Graphics.DrawFrame(offer.GetClientRect(), RandomUtil.NextColor(rndColor), 6);
         }
-        
+
         foreach (var offer in noDupOffer.Where(x => !dupOffer.Contains(x)))
         {
-            if ((offer.IndexInParent == 2) || (GameController.Area.CurrentArea.Area.RawName == "SanctumCrypt" && (offer.IndexInParent == 2 || offer.IndexInParent == 1)
-                    || GameController.Area.CurrentArea.Area.RawName == "SanctumNave" && (offer.IndexInParent == 2 || offer.IndexInParent == 1) && floorFinalChest.FirstOrDefault<Entity>(x => x.Metadata.Contains("FloorFinalRewardChest")) != null ))
-                {
-                    Graphics.DrawLine(offer.Children[1].Parent.GetClientRect().TopLeft.ToVector2Num(), offer.Children[1].Parent.GetClientRect().BottomRight.ToVector2Num(), 4, Color.Red);
-                    Graphics.DrawLine(offer.Children[1].Parent.GetClientRect().TopRight.ToVector2Num(), offer.Children[1].Parent.GetClientRect().BottomLeft.ToVector2Num(), 4, Color.Red);
-                    Graphics.DrawFrame(offer.Children[1].Parent.GetClientRect(), Color.Red, 4);
-                }
+            // The end-of-sanctum slot is never worth taking on a duplicate run, and on the
+            // last floors the end-of-floor slot is not either. Keyed on the floor's room
+            // prefix, since the area name tracks the room you stand in, not the floor.
+            var crossOut = offer.IndexInParent == 2 ||
+                           _lastKnownFloorPrefix == "Crypt" && offer.IndexInParent is 1 or 2 ||
+                           _lastKnownFloorPrefix == "Nave" && offer.IndexInParent is 1 or 2 &&
+                           floorFinalChest.FirstOrDefault(x => x.Metadata.Contains("FloorFinalRewardChest")) != null;
+            if (!crossOut)
+            {
+                continue;
+            }
+
+            var rect = offer.Children[1].Parent.GetClientRect();
+            Graphics.DrawLine(rect.TopLeft.ToVector2Num(), rect.BottomRight.ToVector2Num(), 4, Color.Red);
+            Graphics.DrawLine(rect.TopRight.ToVector2Num(), rect.BottomLeft.ToVector2Num(), 4, Color.Red);
+            Graphics.DrawFrame(rect, Color.Red, 4);
         }
     }
 
@@ -113,6 +128,19 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
 
         var tierMap = new Dictionary<(int, int), (List<int> CurrencyTier, int? RoomTier, int? AfflictionTier)>();
         var roomsByLayer = floorWindow.RoomsByLayer;
+
+        foreach (var probeLayer in roomsByLayer)
+        {
+            foreach (var probeRoom in probeLayer)
+            {
+                var probeId = probeRoom.Data?.FightRoom?.Id ?? probeRoom.Data?.RewardRoom?.Id;
+                if (probeId != null)
+                {
+                    _lastKnownFloorPrefix = probeId.Split('_')[0];
+                    break;
+                }
+            }
+        }
 
         if (Settings.DebugDumpRoomData && _debugDumpPending)
         {
@@ -236,24 +264,7 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
         var bestRoute = new HashSet<(int, int)>();
         if (Settings.EnablePathfinding && Settings.BestPathFrameThickness > 0 && roomsByLayer.Count > 0)
         {
-            // Layer 0 slot 0 can be an empty slot, so scan for the first real room
-            var floor = 0;
-            foreach (var probeLayer in roomsByLayer)
-            {
-                foreach (var probeRoom in probeLayer)
-                {
-                    floor = GetCurrentFloor(probeRoom);
-                    if (floor != 0)
-                    {
-                        break;
-                    }
-                }
-
-                if (floor != 0)
-                {
-                    break;
-                }
-            }
+            var floor = BetterSanctumSettings.GetFloorForRoomPrefix(_lastKnownFloorPrefix);
 
             var routeValue = new Dictionary<(int, int), (int[] Counts, int Next)>();
             for (var layerIndex = roomsByLayer.Count - 1; layerIndex >= 0; layerIndex--)
@@ -559,17 +570,10 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
         return parts.Count > 0 ? $"{type.Name}({string.Join(" ", parts)})" : type.Name;
     }
 
-    // 0 when the floor cannot be identified, which disables every floor-based rule
-    private int GetCurrentFloor(SanctumRoomElement room)
-    {
-        var id = room.Data?.FightRoom?.Id ?? room.Data?.RewardRoom?.Id;
-        return id == null ? 0 : BetterSanctumSettings.GetFloorForRoomPrefix(id.Split('_')[0]);
-    }
-
     // Bonuses shift a value towards the good end rather than adding points, so they stay
     // meaningful under tier comparison. They never reach 0, which is yours to assign, and
     // never improve something already at or below neutral.
-    private int AdjustCurrencyValue(int value, int order, int floor)
+    private int AdjustCurrencyValue(int value, int floor)
     {
         if (value is BetterSanctumSettings.PrioritizeValue or BetterSanctumSettings.BlockValue ||
             value >= BetterSanctumSettings.NeutralValue)
@@ -578,12 +582,6 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
         }
 
         var shift = 0;
-        if (order == 2)
-        {
-            // Third slot is the end-of-sanctum deferral, which pays out larger
-            shift += Settings.ThirdSlotBonus.Value;
-        }
-
         if (floor >= 3)
         {
             // Later floors roll higher reward tiers
@@ -690,7 +688,7 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
         var bestSlotMultiplier = 1;
         foreach (var (reward, order) in room.GetRoomsWithOrder())
         {
-            var value = AdjustCurrencyValue(Settings.GetCurrencyTier(reward.CurrencyName, order), order, floor);
+            var value = AdjustCurrencyValue(Settings.GetCurrencyTier(reward.CurrencyName, order), floor);
             if (value == BetterSanctumSettings.PrioritizeValue)
             {
                 counts[BetterSanctumSettings.PrioritizeValue]++;

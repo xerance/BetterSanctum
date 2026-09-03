@@ -535,7 +535,6 @@ public class BetterSanctumSettings : ISettings
     public ToggleNode DebugDumpRoomData { get; set; } = new ToggleNode(false);
     public ColorNode BestPathColor { get; set; } = new(Color.Cyan);
     public RangeNode<int> BestPathFrameThickness { get; set; } = new RangeNode<int>(4, 0, 10);
-    public RangeNode<int> ThirdSlotBonus { get; set; } = new RangeNode<int>(0, 0, 5);
 
     // Scales every floor and run-type adjustment; 0 disables the context layer
     public RangeNode<int> ContextBiasStrength { get; set; } = new RangeNode<int>(1, 0, 5);
