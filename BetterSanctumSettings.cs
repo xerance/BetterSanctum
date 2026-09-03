@@ -53,6 +53,9 @@ public class BetterSanctumSettings : ISettings
         "Volatile Vaal Orbs",
     };
 
+    // JsonIgnore matters here: Newtonsoft appends to an existing collection rather than
+    // replacing it, so a serialised copy grew by five entries every time settings loaded.
+    [JsonIgnore]
     public readonly IReadOnlyList<string> CurrencyDuplicate = new List<string>
     {
         "Divine Orb",
@@ -571,10 +574,11 @@ public class BetterSanctumSettings : ISettings
 
     public Dictionary<string, ProfileContent> Profiles = new Dictionary<string, ProfileContent>
     {
-        ["Default"] = ProfileContent.CreateNew()
+        ["Normal run"] = ProfileContent.CreateNormalRunProfile(),
+        ["Hour of Divinity dupe run"] = ProfileContent.CreateHourOfDivinityProfile(),
     };
 
-    public string CurrentProfile;
+    public string CurrentProfile = "Normal run";
 
     [JsonIgnore]
     public CustomNode TieringNode { get; set; }
@@ -625,6 +629,221 @@ public class ProfileContent
         ["Tattered Blindfold"] = 2,
     };
 
+    public static ProfileContent CreateNormalRunProfile()
+    {
+        return new ProfileContent
+        {
+            ScaleVersion = BetterSanctumSettings.CurrentScaleVersion,
+            RunType = 0,
+            HideCurrencyBelowTier = 3,
+            CurrencyTiers = new Dictionary<string, int>
+            {
+                ["Mirrors of Kalandra"] = 0,
+                ["Divine Orbs"] = 1,
+                ["Fracturing Orbs"] = 1,
+                ["Volatile Vaal Orbs"] = 1,
+                ["Chaos Orbs"] = 2,
+                ["Stacked Decks"] = 2,
+                ["Veiled Chaos Orbs"] = 2,
+                ["Orbs of Annulment"] = 2,
+                ["Exalted Orbs"] = 2,
+                ["Volatile Vaal Orbs/0"] = 1,
+                ["Volatile Vaal Orbs/1"] = 1,
+                ["Volatile Vaal Orbs/2"] = 1,
+                ["Fracturing Orbs/2"] = 1,
+                ["Fracturing Orbs/1"] = 1,
+                ["Fracturing Orbs/0"] = 1,
+                ["Sacred Orbs/1"] = 2,
+                ["Sacred Orbs/2"] = 2,
+                ["Sacred Orbs/0"] = 2,
+                ["Exalted Orbs/2"] = 3,
+                ["Exalted Orbs/0"] = 3,
+                ["Orbs of Annulment/0"] = 4,
+                ["Orbs of Annulment/2"] = 3,
+                ["Chaos Orbs/2"] = 3,
+                ["Chaos Orbs/0"] = 3,
+                ["Chaos Orbs/1"] = 3,
+                ["Gemcutter's Prisms/0"] = 3,
+                ["Gemcutter's Prisms/1"] = 3,
+                ["Gemcutter's Prisms/2"] = 3,
+                ["Stacked Decks/0"] = 4,
+                ["Stacked Decks/1"] = 4,
+                ["Stacked Decks/2"] = 4,
+                ["Orbs of Annulment/1"] = 3,
+                ["Divine Orbs/0"] = 1,
+                ["Exalted Orbs/1"] = 3,
+                ["Ancient Orbs/0"] = 3,
+                ["Ancient Orbs/1"] = 3,
+                ["Ancient Orbs/2"] = 3,
+            },
+            RoomTiers = new Dictionary<string, int>
+            {
+                ["Explore"] = 3,
+                ["Maze"] = 4,
+                ["Puzzle"] = 4,
+                ["Gauntlet"] = 4,
+                ["Lair"] = 4,
+                ["Vault"] = 4,
+                ["Boss"] = 4,
+                ["Miniboss"] = 4,
+                ["Arena"] = 6,
+                ["Merchant"] = 3,
+                ["BoonFountain"] = 3,
+                ["RainbowFountain"] = 3,
+                ["Deferral"] = 3,
+                ["Fountain"] = 4,
+                ["Treasure"] = 3,
+                ["TreasureMinor"] = 4,
+                ["Deal"] = 3,
+                ["Final"] = 4,
+                ["CurseFountain"] = 4,
+            },
+            AfflictionTiers = new Dictionary<string, int>
+            {
+                ["Accursed Prism"] = 7,
+                ["Poisoned Water"] = 7,
+                ["Cutpurse"] = 6,
+                ["Purple Smoke"] = 7,
+                ["Veiled Sight"] = 6,
+                ["Red Smoke"] = 6,
+                ["Golden Smoke"] = 8,
+                ["Deadly Snare"] = 8,
+                ["Floor Tax"] = 6,
+                ["Liquid Cowardice"] = 7,
+                ["Unhallowed Amulet"] = 6,
+                ["Rusted Coin"] = 7,
+                ["Chiselled Stone"] = 6,
+                ["Fiendish Wings"] = 6,
+                ["Empty Trove"] = 6,
+                ["Demonic Skull"] = 7,
+                ["Unassuming Brick"] = 7,
+                ["Worn Sandals"] = 5,
+                ["Ghastly Scythe"] = 8,
+                ["Rapid Quicksand"] = 6,
+                ["Black Smoke"] = 6,
+                ["Deceptive Mirror"] = 7,
+                ["Tattered Blindfold"] = 6,
+                ["Unhallowed Ring"] = 6,
+                ["Blunt Sword"] = 5,
+                ["Charred Coin"] = 6,
+                ["Door Tax"] = 6,
+                ["Spilt Purse"] = 6,
+                ["Tight Choker"] = 5,
+                ["Concealed Anomaly"] = 5,
+                ["Death Toll"] = 6,
+                ["Haemorrhage"] = 5,
+                ["Unholy Urn"] = 6,
+                ["Orb of Negation"] = 7,
+                ["Anomaly Attractor"] = 5,
+                ["Glass Shard"] = 7,
+                ["Phantom Illusion"] = 5,
+                ["Honed Claws"] = 5,
+                ["Spiked Shell"] = 6,
+                ["Chains of Binding"] = 5,
+                ["Mark of Terror"] = 5,
+            },
+        };
+    }
+
+    public static ProfileContent CreateHourOfDivinityProfile()
+    {
+        return new ProfileContent
+        {
+            ScaleVersion = BetterSanctumSettings.CurrentScaleVersion,
+            RunType = 1,
+            HideCurrencyBelowTier = 3,
+            CurrencyTiers = new Dictionary<string, int>
+            {
+                ["Mirrors of Kalandra"] = 0,
+                ["Divine Orbs"] = 1,
+                ["Fracturing Orbs"] = 1,
+                ["Volatile Vaal Orbs"] = 1,
+                ["Chaos Orbs"] = 2,
+                ["Stacked Decks"] = 2,
+                ["Veiled Chaos Orbs"] = 2,
+                ["Orbs of Annulment"] = 2,
+                ["Exalted Orbs"] = 2,
+                ["Chaos Orbs/0"] = 4,
+                ["Chaos Orbs/1"] = 4,
+                ["Chaos Orbs/2"] = 4,
+                ["Orbs of Annulment/0"] = 4,
+                ["Orbs of Annulment/1"] = 4,
+                ["Orbs of Annulment/2"] = 4,
+                ["Gemcutter's Prisms/1"] = 4,
+                ["Gemcutter's Prisms/0"] = 4,
+                ["Exalted Orbs/0"] = 4,
+                ["Exalted Orbs/1"] = 4,
+                ["Exalted Orbs/2"] = 4,
+                ["Orbs of Augmentation/2"] = 4,
+                ["Ancient Orbs/0"] = 4,
+                ["Ancient Orbs/1"] = 4,
+                ["Stacked Decks/0"] = 4,
+                ["Stacked Decks/1"] = 4,
+                ["Stacked Decks/2"] = 4,
+            },
+            RoomTiers = new Dictionary<string, int>
+            {
+                ["Explore"] = 3,
+                ["Maze"] = 3,
+                ["Puzzle"] = 3,
+                ["Gauntlet"] = 3,
+                ["Lair"] = 4,
+                ["Vault"] = 4,
+                ["Boss"] = 4,
+                ["Miniboss"] = 4,
+                ["Arena"] = 6,
+                ["Merchant"] = 4,
+                ["BoonFountain"] = 4,
+                ["RainbowFountain"] = 3,
+                ["Deferral"] = 3,
+                ["Fountain"] = 3,
+                ["Treasure"] = 4,
+                ["TreasureMinor"] = 4,
+                ["Deal"] = 3,
+                ["Final"] = 4,
+                ["CurseFountain"] = 4,
+            },
+            AfflictionTiers = new Dictionary<string, int>
+            {
+                ["Accursed Prism"] = 7,
+                ["Poisoned Water"] = 6,
+                ["Cutpurse"] = 6,
+                ["Purple Smoke"] = 7,
+                ["Veiled Sight"] = 6,
+                ["Red Smoke"] = 6,
+                ["Golden Smoke"] = 7,
+                ["Deadly Snare"] = 6,
+                ["Floor Tax"] = 5,
+                ["Liquid Cowardice"] = 7,
+                ["Unhallowed Amulet"] = 4,
+                ["Rusted Coin"] = 4,
+                ["Chiselled Stone"] = 6,
+                ["Fiendish Wings"] = 6,
+                ["Empty Trove"] = 5,
+                ["Demonic Skull"] = 6,
+                ["Unassuming Brick"] = 4,
+                ["Worn Sandals"] = 6,
+                ["Ghastly Scythe"] = 8,
+                ["Rapid Quicksand"] = 6,
+                ["Black Smoke"] = 5,
+                ["Deceptive Mirror"] = 7,
+                ["Tattered Blindfold"] = 4,
+                ["Death Toll"] = 5,
+                ["Spilt Purse"] = 5,
+                ["Door Tax"] = 5,
+                ["Charred Coin"] = 5,
+                ["Phantom Illusion"] = 5,
+                ["Unholy Urn"] = 7,
+                ["Orb of Negation"] = 8,
+                ["Anomaly Attractor"] = 5,
+                ["Blunt Sword"] = 5,
+                ["Honed Claws"] = 5,
+                ["Spiked Shell"] = 5,
+                ["Iron Manacles"] = 4,
+            },
+        };
+    }
+
     public static ProfileContent CreateNew()
     {
         return new ProfileContent { ScaleVersion = BetterSanctumSettings.CurrentScaleVersion };
@@ -661,12 +880,15 @@ public class RoutingSettings
     public CustomNode Help { get; set; } = SettingsHelp.Block(
         "Picks one room per layer from where you stand to the boss and frames it.",
         "Rooms are counted by tier, then weighted: tier 1 is worth 100, tier 2 is worth 10, tier 3 is worth 5, and the bad half mirrors that. Tier 0 is always routed to and tier 8 never is, unless a 0 lies beyond it.",
-        "Bias strength scales the floor and relic adjustments; set it to 0 to score purely on the tiers you assigned.");
+        "Bias strength scales the floor adjustments only, each point being one tier step: on floors 3-4 good currency improves and Deal gains 50 points, on floors 1-2 Treasure and Merchant improve unless you are running Hour of Divinity. Set it to 0 to score purely on the tiers you assigned.",
+        "Relic adjustments are not scaled and apply at any strength: Hour of Divinity flattens BoonFountain to neutral, Gilded Chalice flattens Fountain.");
 
     public ToggleNode EnablePathfinding { get; set; } = new ToggleNode(true);
     public ColorNode BestPathColor { get; set; } = new(Color.Cyan);
-    public RangeNode<int> BestPathFrameThickness { get; set; } = new RangeNode<int>(4, 0, 10);
-    public RangeNode<int> BestPathLineThickness { get; set; } = new RangeNode<int>(3, 0, 10);
+    public RangeNode<int> BestPathFrameThickness { get; set; } = new RangeNode<int>(3, 0, 10);
+    public RangeNode<int> BestPathLineThickness { get; set; } = new RangeNode<int>(4, 0, 10);
+    // Scales the floor-based adjustments by one tier step per point. Relic nullification
+    // is a constraint rather than a preference and is deliberately not scaled by it.
     public RangeNode<int> ContextBiasStrength { get; set; } = new RangeNode<int>(1, 0, 5);
 }
 
@@ -680,7 +902,7 @@ public class MapDisplaySettings
 
     public ColorNode TextColor { get; set; } = new ColorNode(Color.White);
     public ColorNode BackgroundColor { get; set; } = new ColorNode(Color.Black with { A = 128 });
-    public RangeNode<int> ConnectionLineThickness { get; set; } = new RangeNode<int>(5, 0, 10);
+    public RangeNode<int> ConnectionLineThickness { get; set; } = new RangeNode<int>(0, 0, 10);
     public ToggleNode ShowEffectId { get; set; } = new ToggleNode(false);
     public ToggleNode ShowEffectName { get; set; } = new ToggleNode(true);
     public ToggleNode ShowEffectDescription { get; set; } = new ToggleNode(true);
