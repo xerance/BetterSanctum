@@ -1034,9 +1034,12 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
     // expensive currencies that decide routes - divines and fracturing arrive in ones and
     // twos - and badly understates cheap ones like chaos, which arrive in stacks of ten
     // but are rated low enough that it does not matter.
-    private int PricePointsFor(SanctumDeferredRewardCategory reward, int order, int floor)
+    private int PricePointsFor(SanctumDeferredRewardCategory reward, int order, int floor, int value)
     {
-        if (!Settings.Routing.UsePricesInRouting)
+        // Only the tiers that actually decide routes. The cap bounds a single room, not a
+        // whole route, so letting every reward contribute would let a path stacked with
+        // middling currency out-score one holding a genuine tier 1.
+        if (!Settings.Routing.UsePricesInRouting || value > Settings.Routing.PriceMaxTier)
         {
             return 0;
         }
@@ -1097,7 +1100,7 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
             }
 
             var multiplier = order == 2 ? thirdSlotMultiplier : 1;
-            var pricePoints = PricePointsFor(reward, order, floor);
+            var pricePoints = PricePointsFor(reward, order, floor, value);
             var worth = RewardWeights[value] * multiplier + pricePoints;
             if (bestSlotValue < 0 || worth > bestSlotWorth)
             {
