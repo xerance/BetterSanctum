@@ -7,6 +7,7 @@ using System.Linq;
 using ExileCore;
 using ExileCore.PoEMemory;
 using ExileCore.PoEMemory.Elements.Sanctum;
+using ExileCore.PoEMemory.FilesInMemory.Sanctum;
 using ExileCore.PoEMemory.MemoryObjects;
 using ExileCore.Shared.Enums;
 using ExileCore.Shared.Helpers;
@@ -28,6 +29,8 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
     private List<RectangleF> _obstructions = new List<RectangleF>();
     private EffectHelper _effectHelper;
     private RewardTracker _rewardTracker;
+    private Func<BaseItemType, double> _currencyPrice;
+    private readonly Stopwatch _sincePriceLookupStopwatch = Stopwatch.StartNew();
 
     public override bool Initialise()
     {
@@ -39,6 +42,55 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
     // Returns the size whether or not it draws, so a suppressed line still advances the
     // layout and the rest of the block stays where it belongs. Tested per line because a
     // room's text runs well below its own box and can reach a tooltip the box does not.
+    // Resolved lazily and retried: Ninja Price registers its bridge method in its own
+    // Initialise, which may run after ours. Null simply means it is not installed, and
+    // prices are then left out rather than the feature failing loudly.
+    private Func<BaseItemType, double> ResolvePriceLookup()
+    {
+        if (_currencyPrice != null || _sincePriceLookupStopwatch.Elapsed < TimeSpan.FromSeconds(5))
+        {
+            return _currencyPrice;
+        }
+
+        _sincePriceLookupStopwatch.Restart();
+        try
+        {
+            _currencyPrice = GameController.PluginBridge.GetMethod<Func<BaseItemType, double>>("NinjaPrice.GetBaseItemTypeValue");
+        }
+        catch (Exception)
+        {
+            _currencyPrice = null;
+        }
+
+        return _currencyPrice;
+    }
+
+    // A unit price only. Reward quantity is not exposed anywhere in room data, so this
+    // says what one of them is worth, not what the room pays out.
+    private string DescribeRewardPrice(SanctumDeferredRewardCategory reward)
+    {
+        if (!Settings.MapDisplay.ShowRewardPrices)
+        {
+            return "";
+        }
+
+        var lookup = ResolvePriceLookup();
+        if (lookup == null || reward.BaseType == null)
+        {
+            return "";
+        }
+
+        try
+        {
+            var chaos = lookup(reward.BaseType);
+            return chaos >= 1 ? $" ({chaos:0}c)" : "";
+        }
+        catch (Exception)
+        {
+            return "";
+        }
+    }
+
     private Vector2 DrawTextWithBackground(string text, Vector2 position, Color color, Color backgroundColor)
     {
         var textSize = Graphics.MeasureText(text);
@@ -632,7 +684,7 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
                         var tier = Settings.GetCurrencyTier(currencyName, reward.order);
                         if (tier <= Settings.HideCurrencyBelowTier)
                         {
-                            textSize = DrawTextWithBackground(currencyName, lineLocation, GetTierColor(tier), Settings.MapDisplay.BackgroundColor);
+                            textSize = DrawTextWithBackground(currencyName + DescribeRewardPrice(reward.room), lineLocation, GetTierColor(tier), Settings.MapDisplay.BackgroundColor);
                             lineLocation.Y += textSize.Y;
                         }
                     }
