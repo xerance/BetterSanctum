@@ -121,6 +121,44 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
 
     // Offer text carries the quantity, which room data does not appear to expose. Logged
     // verbatim rather than parsed, so the format can be read off real data first.
+    // Reward quantity is not in room data - every member but CurrencyName reads absent -
+    // so the game's own tooltip is the only place it appears while the map is open.
+    private static void CollectText(Element element, List<string> into, int depth)
+    {
+        if (element == null || depth > 6)
+        {
+            return;
+        }
+
+        var text = element.Text;
+        if (!string.IsNullOrWhiteSpace(text))
+        {
+            into.Add(text.Trim());
+        }
+
+        foreach (var child in element.Children)
+        {
+            CollectText(child, into, depth + 1);
+        }
+    }
+
+    private void TrackHoveredTooltip(SanctumRoomElement hoveredRoom, int floor)
+    {
+        var texts = new List<string>();
+        CollectText(hoveredRoom.Tooltip, texts, 0);
+        if (texts.Count == 0)
+        {
+            return;
+        }
+
+        var joined = string.Join(" | ", texts).Replace(";", ",").Replace("\n", " ");
+        foreach (var (reward, order) in hoveredRoom.GetRoomsWithOrder())
+        {
+            _rewardTracker.Add("tooltip", floor, _lastKnownFloorPrefix, "", "", order.ToString(),
+                reward.CurrencyName ?? "", joined);
+        }
+    }
+
     private void TrackOfferWindow()
     {
         var offerWindow = GetOfferWindow();
@@ -242,6 +280,11 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
         if (Settings.Debug.TrackRewards)
         {
             var trackedFloor = BetterSanctumSettings.GetFloorForRoomPrefix(_lastKnownFloorPrefix);
+            if (hoveredRoom != null)
+            {
+                TrackHoveredTooltip(hoveredRoom, trackedFloor);
+            }
+
             for (var layerIndex = 0; layerIndex < roomsByLayer.Count; layerIndex++)
             {
                 var roomLayer = roomsByLayer[layerIndex];
