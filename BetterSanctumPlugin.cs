@@ -243,6 +243,11 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
                         var data = roomLayer[roomIndex].Data;
                         lines.Add($"L{layerIndex}R{roomIndex} " +
                                   string.Join(", ", DebugMemberNames.Select(name => DescribeMember(data, name))));
+                        foreach (var (reward, order) in roomLayer[roomIndex].GetRoomsWithOrder())
+                        {
+                            lines.Add($"  L{layerIndex}R{roomIndex} reward{order} " +
+                                      string.Join(", ", DebugRewardMemberNames.Select(name => DescribeMember(reward, name))));
+                        }
                     }
                 }
 
@@ -570,6 +575,13 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
     private static readonly string[] DebugWindowMemberNames =
     {
         "RoomChoices", "Rooms", "RoomData", "RoomDataArray", "RoomName", "Room",
+    };
+
+    // On the reward objects themselves, to find whether a reward quantity is readable
+    private static readonly string[] DebugRewardMemberNames =
+    {
+        "CurrencyName", "Cost", "CostMultiplier", "CostStat", "DeferralCategory",
+        "Min", "Max", "StackSize", "Amount", "Quantity", "Id", "Name",
     };
 
     private static readonly string[] DebugMemberNames =
