@@ -1036,9 +1036,15 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
     // but are rated low enough that it does not matter.
     private int PricePointsFor(SanctumDeferredRewardCategory reward, int order, int floor, int value)
     {
-        // Only the tiers that actually decide routes. The cap bounds a single room, not a
-        // whole route, so letting every reward contribute would let a path stacked with
-        // middling currency out-score one holding a genuine tier 1.
+        // Gated on the tier you assigned rather than the floor-adjusted one. The floor 3
+        // bonus promotes mid currency a tier, which would drag chaos into the priced band
+        // on exactly the floors that matter - and chaos is where assuming a quantity of
+        // one is most wrong, arriving in stacks of ten. The four currencies this is meant
+        // for only spawn from floor 3 anyway, so nothing is lost by ignoring the bonus.
+        //
+        // The cap bounds a single room, not a whole route, so letting every tier
+        // contribute would let a path stacked with middling currency out-score one
+        // holding a genuine tier 1.
         if (!Settings.Routing.UsePricesInRouting || value > Settings.Routing.PriceMaxTier)
         {
             return 0;
@@ -1086,7 +1092,8 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
         var bestSlotPricePoints = 0;
         foreach (var (reward, order) in room.GetRoomsWithOrder())
         {
-            var value = AdjustCurrencyValue(Settings.GetCurrencyTier(reward.CurrencyName, order), floor);
+            var assignedValue = Settings.GetCurrencyTier(reward.CurrencyName, order);
+            var value = AdjustCurrencyValue(assignedValue, floor);
             if (value == BetterSanctumSettings.PrioritizeValue)
             {
                 counts[Slot(AxisReward, BetterSanctumSettings.PrioritizeValue)]++;
@@ -1100,7 +1107,7 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
             }
 
             var multiplier = order == 2 ? thirdSlotMultiplier : 1;
-            var pricePoints = PricePointsFor(reward, order, floor, value);
+            var pricePoints = PricePointsFor(reward, order, floor, assignedValue);
             var worth = RewardWeights[value] * multiplier + pricePoints;
             if (bestSlotValue < 0 || worth > bestSlotWorth)
             {
