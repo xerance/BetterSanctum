@@ -24,6 +24,7 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
     // Remembered from the floor map: the reward window can be open when the map is not,
     // and the area name follows the room you stand in rather than the floor.
     private string _lastKnownFloorPrefix;
+    private List<RectangleF> _obstructions = new List<RectangleF>();
     private EffectHelper _effectHelper;
 
     public override bool Initialise()
@@ -32,9 +33,17 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
         return base.Initialise();
     }
 
+    // Returns the size whether or not it draws, so a suppressed line still advances the
+    // layout and the rest of the block stays where it belongs. Tested per line because a
+    // room's text runs well below its own box and can reach a tooltip the box does not.
     private Vector2 DrawTextWithBackground(string text, Vector2 position, Color color, Color backgroundColor)
     {
         var textSize = Graphics.MeasureText(text);
+        if (IsObstructed(_obstructions, new RectangleF(position.X, position.Y, textSize.X, textSize.Y)))
+        {
+            return textSize;
+        }
+
         Graphics.DrawBox(position, textSize + position, backgroundColor);
         Graphics.DrawText(text, position, color);
         return textSize;
@@ -174,7 +183,7 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
             tooltipRect = hoveredRoom.Tooltip.GetClientRectCache;
         }
 
-        var obstructions = CollectObstructions(tooltipRect);
+        _obstructions = CollectObstructions(tooltipRect);
 
         var tierMap = new Dictionary<(int, int), (List<int> CurrencyTier, int? RoomTier, int? AfflictionTier)>();
         var roomsByLayer = floorWindow.RoomsByLayer;
@@ -417,7 +426,7 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
             {
                 var from = roomsByLayer[bestRouteOrder[step - 1].Layer][bestRouteOrder[step - 1].Room].GetClientRectCache;
                 var to = roomsByLayer[bestRouteOrder[step].Layer][bestRouteOrder[step].Room].GetClientRectCache;
-                if (IsObstructed(obstructions, from) || IsObstructed(obstructions, to))
+                if (IsObstructed(_obstructions, from) || IsObstructed(_obstructions, to))
                 {
                     continue;
                 }
@@ -456,7 +465,7 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
                             }
 
                             var rightPoint = new Vector2(connectedRoom.GetClientRectCache.Left + 15, connectedRoom.GetClientRectCache.Center.Y);
-                            if (IsObstructed(obstructions, new RectangleF(leftPoint.X, Math.Min(leftPoint.Y, rightPoint.Y),
+                            if (IsObstructed(_obstructions, new RectangleF(leftPoint.X, Math.Min(leftPoint.Y, rightPoint.Y),
                                     rightPoint.X - leftPoint.X,
                                     Math.Max(leftPoint.Y, rightPoint.Y) -
                                     Math.Min(leftPoint.Y, rightPoint.Y))))
@@ -483,7 +492,7 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
                     }
                 }
 
-                if (IsObstructed(obstructions, room.GetClientRectCache))
+                if (IsObstructed(_obstructions, room.GetClientRectCache))
                 {
                     continue;
                 }
