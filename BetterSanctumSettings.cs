@@ -364,6 +364,33 @@ public class BetterSanctumSettings : ISettings
     public const int PrioritizeValue = 0;
     public const int NeutralValue = 4;
     public const int BlockValue = 8;
+    public static readonly IReadOnlyDictionary<string, int> DefaultAfflictionTiers = new Dictionary<string, int>
+    {
+        ["Accursed Prism"] = 6,
+        ["Poisoned Water"] = 6,
+        ["Cutpurse"] = 6,
+        ["Purple Smoke"] = 6,
+        ["Veiled Sight"] = 6,
+        ["Red Smoke"] = 6,
+        ["Golden Smoke"] = 6,
+        ["Deadly Snare"] = 6,
+        ["Floor Tax"] = 6,
+        ["Liquid Cowardice"] = 6,
+        ["Unhallowed Amulet"] = 6,
+        ["Rusted Coin"] = 6,
+        ["Chiselled Stone"] = 6,
+        ["Fiendish Wings"] = 6,
+        ["Empty Trove"] = 6,
+        ["Demonic Skull"] = 6,
+        ["Unassuming Brick"] = 6,
+        ["Worn Sandals"] = 6,
+        ["Ghastly Scythe"] = 6,
+        ["Rapid Quicksand"] = 6,
+        ["Black Smoke"] = 6,
+        ["Deceptive Mirror"] = 6,
+        ["Tattered Blindfold"] = 2,
+    };
+
     // Bare names apply to every reward slot; a "name/slot" key overrides one slot.
     public static readonly IReadOnlyDictionary<string, int> DefaultCurrencyTiers = new Dictionary<string, int>
     {
@@ -574,11 +601,10 @@ public class BetterSanctumSettings : ISettings
 
     public Dictionary<string, ProfileContent> Profiles = new Dictionary<string, ProfileContent>
     {
-        ["Normal run"] = ProfileContent.CreateNormalRunProfile(),
-        ["Hour of Divinity dupe run"] = ProfileContent.CreateHourOfDivinityProfile(),
+        ["Default"] = ProfileContent.CreateNew(),
     };
 
-    public string CurrentProfile = "Normal run";
+    public string CurrentProfile = "Default";
 
     [JsonIgnore]
     public CustomNode TieringNode { get; set; }
@@ -602,247 +628,7 @@ public class ProfileContent
 
     public Dictionary<string, int> RoomTiers = new(BetterSanctumSettings.DefaultRoomTiers);
 
-    public Dictionary<string, int> AfflictionTiers = new()
-    {
-        ["Accursed Prism"] = 6,
-        ["Poisoned Water"] = 6,
-        ["Cutpurse"] = 6,
-        ["Purple Smoke"] = 6,
-        ["Veiled Sight"] = 6,
-        ["Red Smoke"] = 6,
-        ["Golden Smoke"] = 6,
-        ["Deadly Snare"] = 6,
-        ["Floor Tax"] = 6,
-        ["Liquid Cowardice"] = 6,
-        ["Unhallowed Amulet"] = 6,
-        ["Rusted Coin"] = 6,
-        ["Chiselled Stone"] = 6,
-        ["Fiendish Wings"] = 6,
-        ["Empty Trove"] = 6,
-        ["Demonic Skull"] = 6,
-        ["Unassuming Brick"] = 6,
-        ["Worn Sandals"] = 6,
-        ["Ghastly Scythe"] = 6,
-        ["Rapid Quicksand"] = 6,
-        ["Black Smoke"] = 6,
-        ["Deceptive Mirror"] = 6,
-        ["Tattered Blindfold"] = 2,
-    };
-
-    public static ProfileContent CreateNormalRunProfile()
-    {
-        return new ProfileContent
-        {
-            ScaleVersion = BetterSanctumSettings.CurrentScaleVersion,
-            RunType = 0,
-            HideCurrencyBelowTier = 3,
-            CurrencyTiers = new Dictionary<string, int>
-            {
-                ["Mirrors of Kalandra"] = 0,
-                ["Divine Orbs"] = 1,
-                ["Fracturing Orbs"] = 1,
-                ["Volatile Vaal Orbs"] = 1,
-                ["Chaos Orbs"] = 2,
-                ["Stacked Decks"] = 2,
-                ["Veiled Chaos Orbs"] = 2,
-                ["Orbs of Annulment"] = 2,
-                ["Exalted Orbs"] = 2,
-                ["Volatile Vaal Orbs/0"] = 1,
-                ["Volatile Vaal Orbs/1"] = 1,
-                ["Volatile Vaal Orbs/2"] = 1,
-                ["Fracturing Orbs/2"] = 1,
-                ["Fracturing Orbs/1"] = 1,
-                ["Fracturing Orbs/0"] = 1,
-                ["Sacred Orbs/1"] = 2,
-                ["Sacred Orbs/2"] = 2,
-                ["Sacred Orbs/0"] = 2,
-                ["Exalted Orbs/2"] = 3,
-                ["Exalted Orbs/0"] = 3,
-                ["Orbs of Annulment/0"] = 4,
-                ["Orbs of Annulment/2"] = 3,
-                ["Chaos Orbs/2"] = 3,
-                ["Chaos Orbs/0"] = 3,
-                ["Chaos Orbs/1"] = 3,
-                ["Gemcutter's Prisms/0"] = 3,
-                ["Gemcutter's Prisms/1"] = 3,
-                ["Gemcutter's Prisms/2"] = 3,
-                ["Stacked Decks/0"] = 4,
-                ["Stacked Decks/1"] = 4,
-                ["Stacked Decks/2"] = 4,
-                ["Orbs of Annulment/1"] = 3,
-                ["Divine Orbs/0"] = 1,
-                ["Exalted Orbs/1"] = 3,
-                ["Ancient Orbs/0"] = 3,
-                ["Ancient Orbs/1"] = 3,
-                ["Ancient Orbs/2"] = 3,
-            },
-            RoomTiers = new Dictionary<string, int>
-            {
-                ["Explore"] = 3,
-                ["Maze"] = 4,
-                ["Puzzle"] = 4,
-                ["Gauntlet"] = 4,
-                ["Lair"] = 4,
-                ["Vault"] = 4,
-                ["Boss"] = 4,
-                ["Miniboss"] = 4,
-                ["Arena"] = 6,
-                ["Merchant"] = 3,
-                ["BoonFountain"] = 3,
-                ["RainbowFountain"] = 3,
-                ["Deferral"] = 3,
-                ["Fountain"] = 4,
-                ["Treasure"] = 3,
-                ["TreasureMinor"] = 4,
-                ["Deal"] = 3,
-                ["Final"] = 4,
-                ["CurseFountain"] = 4,
-            },
-            AfflictionTiers = new Dictionary<string, int>
-            {
-                ["Accursed Prism"] = 7,
-                ["Poisoned Water"] = 7,
-                ["Cutpurse"] = 6,
-                ["Purple Smoke"] = 7,
-                ["Veiled Sight"] = 6,
-                ["Red Smoke"] = 6,
-                ["Golden Smoke"] = 8,
-                ["Deadly Snare"] = 8,
-                ["Floor Tax"] = 6,
-                ["Liquid Cowardice"] = 7,
-                ["Unhallowed Amulet"] = 6,
-                ["Rusted Coin"] = 7,
-                ["Chiselled Stone"] = 6,
-                ["Fiendish Wings"] = 6,
-                ["Empty Trove"] = 6,
-                ["Demonic Skull"] = 7,
-                ["Unassuming Brick"] = 7,
-                ["Worn Sandals"] = 5,
-                ["Ghastly Scythe"] = 8,
-                ["Rapid Quicksand"] = 6,
-                ["Black Smoke"] = 6,
-                ["Deceptive Mirror"] = 7,
-                ["Tattered Blindfold"] = 6,
-                ["Unhallowed Ring"] = 6,
-                ["Blunt Sword"] = 5,
-                ["Charred Coin"] = 6,
-                ["Door Tax"] = 6,
-                ["Spilt Purse"] = 6,
-                ["Tight Choker"] = 5,
-                ["Concealed Anomaly"] = 5,
-                ["Death Toll"] = 6,
-                ["Haemorrhage"] = 5,
-                ["Unholy Urn"] = 6,
-                ["Orb of Negation"] = 7,
-                ["Anomaly Attractor"] = 5,
-                ["Glass Shard"] = 7,
-                ["Phantom Illusion"] = 5,
-                ["Honed Claws"] = 5,
-                ["Spiked Shell"] = 6,
-                ["Chains of Binding"] = 5,
-                ["Mark of Terror"] = 5,
-            },
-        };
-    }
-
-    public static ProfileContent CreateHourOfDivinityProfile()
-    {
-        return new ProfileContent
-        {
-            ScaleVersion = BetterSanctumSettings.CurrentScaleVersion,
-            RunType = 1,
-            HideCurrencyBelowTier = 3,
-            CurrencyTiers = new Dictionary<string, int>
-            {
-                ["Mirrors of Kalandra"] = 0,
-                ["Divine Orbs"] = 1,
-                ["Fracturing Orbs"] = 1,
-                ["Volatile Vaal Orbs"] = 1,
-                ["Chaos Orbs"] = 2,
-                ["Stacked Decks"] = 2,
-                ["Veiled Chaos Orbs"] = 2,
-                ["Orbs of Annulment"] = 2,
-                ["Exalted Orbs"] = 2,
-                ["Chaos Orbs/0"] = 4,
-                ["Chaos Orbs/1"] = 4,
-                ["Chaos Orbs/2"] = 4,
-                ["Orbs of Annulment/0"] = 4,
-                ["Orbs of Annulment/1"] = 4,
-                ["Orbs of Annulment/2"] = 4,
-                ["Gemcutter's Prisms/1"] = 4,
-                ["Gemcutter's Prisms/0"] = 4,
-                ["Exalted Orbs/0"] = 4,
-                ["Exalted Orbs/1"] = 4,
-                ["Exalted Orbs/2"] = 4,
-                ["Orbs of Augmentation/2"] = 4,
-                ["Ancient Orbs/0"] = 4,
-                ["Ancient Orbs/1"] = 4,
-                ["Stacked Decks/0"] = 4,
-                ["Stacked Decks/1"] = 4,
-                ["Stacked Decks/2"] = 4,
-            },
-            RoomTiers = new Dictionary<string, int>
-            {
-                ["Explore"] = 3,
-                ["Maze"] = 3,
-                ["Puzzle"] = 3,
-                ["Gauntlet"] = 3,
-                ["Lair"] = 4,
-                ["Vault"] = 4,
-                ["Boss"] = 4,
-                ["Miniboss"] = 4,
-                ["Arena"] = 6,
-                ["Merchant"] = 4,
-                ["BoonFountain"] = 4,
-                ["RainbowFountain"] = 3,
-                ["Deferral"] = 3,
-                ["Fountain"] = 3,
-                ["Treasure"] = 4,
-                ["TreasureMinor"] = 4,
-                ["Deal"] = 3,
-                ["Final"] = 4,
-                ["CurseFountain"] = 4,
-            },
-            AfflictionTiers = new Dictionary<string, int>
-            {
-                ["Accursed Prism"] = 7,
-                ["Poisoned Water"] = 6,
-                ["Cutpurse"] = 6,
-                ["Purple Smoke"] = 7,
-                ["Veiled Sight"] = 6,
-                ["Red Smoke"] = 6,
-                ["Golden Smoke"] = 7,
-                ["Deadly Snare"] = 6,
-                ["Floor Tax"] = 5,
-                ["Liquid Cowardice"] = 7,
-                ["Unhallowed Amulet"] = 4,
-                ["Rusted Coin"] = 4,
-                ["Chiselled Stone"] = 6,
-                ["Fiendish Wings"] = 6,
-                ["Empty Trove"] = 5,
-                ["Demonic Skull"] = 6,
-                ["Unassuming Brick"] = 4,
-                ["Worn Sandals"] = 6,
-                ["Ghastly Scythe"] = 8,
-                ["Rapid Quicksand"] = 6,
-                ["Black Smoke"] = 5,
-                ["Deceptive Mirror"] = 7,
-                ["Tattered Blindfold"] = 4,
-                ["Death Toll"] = 5,
-                ["Spilt Purse"] = 5,
-                ["Door Tax"] = 5,
-                ["Charred Coin"] = 5,
-                ["Phantom Illusion"] = 5,
-                ["Unholy Urn"] = 7,
-                ["Orb of Negation"] = 8,
-                ["Anomaly Attractor"] = 5,
-                ["Blunt Sword"] = 5,
-                ["Honed Claws"] = 5,
-                ["Spiked Shell"] = 5,
-                ["Iron Manacles"] = 4,
-            },
-        };
-    }
+    public Dictionary<string, int> AfflictionTiers = new(BetterSanctumSettings.DefaultAfflictionTiers);
 
     public static ProfileContent CreateNew()
     {
