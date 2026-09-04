@@ -879,7 +879,8 @@ public class RoutingSettings
     [JsonIgnore]
     public CustomNode Help { get; set; } = SettingsHelp.Block(
         "Picks one room per layer from where you stand to the boss and frames it.",
-        "Rooms are counted by tier, then weighted: tier 1 is worth 100, tier 2 is worth 10, tier 3 is worth 5, and the bad half mirrors that. Tier 0 is always routed to and tier 8 never is, unless a 0 lies beyond it.",
+        "Rooms are counted by tier and weighted per axis, because the same tier means different things: a tier-1 reward is 100 while a tier-2 is only 3, so lesser rewards never outweigh a calmer route. A bad affliction is -70, so one tier-1 reward is worth one but not two. Room type sits between the two.",
+        "Tier 0 is always routed to and tier 8 never is, unless a 0 lies beyond it.",
         "Bias strength scales the floor adjustments only, each point being one tier step: on floors 3-4 good currency improves and Deal gains 50 points, on floors 1-2 Treasure and Merchant improve unless you are running Hour of Divinity. Set it to 0 to score purely on the tiers you assigned.",
         "Relic adjustments are not scaled and apply at any strength: Hour of Divinity flattens BoonFountain to neutral, Gilded Chalice flattens Fountain.");
 
@@ -889,6 +890,10 @@ public class RoutingSettings
     public RangeNode<int> BestPathLineThickness { get; set; } = new RangeNode<int>(4, 0, 10);
     // Scales the floor-based adjustments by one tier step per point. Relic nullification
     // is a constraint rather than a preference and is deliberately not scaled by it.
+    // What a deal room is worth from floor 3, in the same units as the tier weights:
+    // a tier-1 reward is 100, a bad affliction is -70.
+    public RangeNode<int> DealValueLateFloors { get; set; } = new RangeNode<int>(80, 0, 200);
+
     public RangeNode<int> ContextBiasStrength { get; set; } = new RangeNode<int>(1, 0, 5);
 }
 

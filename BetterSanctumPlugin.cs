@@ -708,45 +708,83 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
         return favoured ? Math.Max(value - bias, 1) : value;
     }
 
+    // A route is counted per axis, because the same tier means very different things
+    // depending on what wears it: a tier-6 affliction can end a run, a tier-6 room type
+    // is an inconvenience. One shared table forced those to cost the same.
     private const int TierCount = 9;
+    private const int AxisReward = 0;
+    private const int AxisAffliction = 1;
+    private const int AxisRoom = 2;
+    private const int AxisCount = 3;
+    private const int BonusIndex = AxisCount * TierCount;
+    private const int RouteValueSize = BonusIndex + 1;
 
-    // Tier counts, plus one trailing slot holding flat bonus points so both sum the same
-    // way through the route.
-    private const int DealLateFloorBonus = 50;
-    private const int BonusIndex = TierCount;
-    private const int RouteValueSize = TierCount + 1;
+    private static int Slot(int axis, int tier) => axis * TierCount + tier;
 
-    // Distance from neutral, an order of magnitude per step, with 7 an outsized penalty
-    // rather than a bar: it takes more than a tier-1 reward to justify entering one, but
-    // enough value can still buy through. 0 and 8 are the constraints and score nothing.
-    // The last entry scores the bonus slot, so bonuses use these same units.
-    private static readonly int[] TierWeights = { 0, 100, 10, 5, 0, -5, -10, -120, 0, 1 };
+    // Rewards are deliberately bimodal: tier 1 decides routes, everything below it is a
+    // bonus that should never outweigh a calmer path. It takes 24 tier-2 rewards to
+    // justify one bad affliction, which an eight layer floor cannot hold.
+    private static readonly int[] RewardWeights = { 0, 100, 3, 1, 0, -1, -3, -10, 0 };
+
+    // Calibrated against the trades that matter: one tier-1 reward is worth one bad
+    // affliction (100 - 70) but not two (100 - 140), and a tier-7 needs three.
+    private static readonly int[] AfflictionWeights = { 0, 100, 30, 10, 0, -20, -70, -250, 0 };
+
+    // Room type is about how hard the run is, not what it pays, so it sits between the
+    // two: enough to prefer a calm route, never enough to turn down a tier-1.
+    private static readonly int[] RoomWeights = { 0, 20, 10, 4, 0, -4, -15, -40, 0 };
+
+    private static readonly int[] TierWeights = BuildTierWeights();
+
+    private static int[] BuildTierWeights()
+    {
+        var weights = new int[RouteValueSize];
+        for (var tier = 0; tier < TierCount; tier++)
+        {
+            weights[Slot(AxisReward, tier)] = RewardWeights[tier];
+            weights[Slot(AxisAffliction, tier)] = AfflictionWeights[tier];
+            weights[Slot(AxisRoom, tier)] = RoomWeights[tier];
+        }
+
+        // Flat bonuses are already expressed in these units
+        weights[BonusIndex] = 1;
+        return weights;
+    }
 
     private static int WeighTiers(int[] counts)
     {
         var total = 0;
-        for (var tier = 0; tier < RouteValueSize; tier++)
+        for (var slot = 0; slot < RouteValueSize; slot++)
         {
-            total += counts[tier] * TierWeights[tier];
+            total += counts[slot] * TierWeights[slot];
         }
 
         return total;
     }
 
-    // Positive when route a is preferable to route b. The two constraint tiers carry no
-    // weight of their own and are compared ahead of the sum: a must-take outranks
-    // everything, including any number of never-enter rooms in the way, and among routes
-    // tied on must-takes the one entering fewest never-enter rooms wins.
+    // Constraint tiers score nothing on any axis and are counted across all three
+    private static int ConstraintCount(int[] counts, int tier)
+    {
+        return counts[Slot(AxisReward, tier)] + counts[Slot(AxisAffliction, tier)] + counts[Slot(AxisRoom, tier)];
+    }
+
+    // Positive when route a is preferable to route b. Must-takes outrank everything,
+    // including any number of never-enter rooms standing in the way; among routes tied on
+    // those, fewest never-enters wins; only then does the weighted total decide.
     private static int CompareRoutes(int[] a, int[] b)
     {
-        if (a[BetterSanctumSettings.PrioritizeValue] != b[BetterSanctumSettings.PrioritizeValue])
+        var mustTake = ConstraintCount(a, BetterSanctumSettings.PrioritizeValue)
+            .CompareTo(ConstraintCount(b, BetterSanctumSettings.PrioritizeValue));
+        if (mustTake != 0)
         {
-            return a[BetterSanctumSettings.PrioritizeValue].CompareTo(b[BetterSanctumSettings.PrioritizeValue]);
+            return mustTake;
         }
 
-        if (a[BetterSanctumSettings.BlockValue] != b[BetterSanctumSettings.BlockValue])
+        var neverEnter = ConstraintCount(b, BetterSanctumSettings.BlockValue)
+            .CompareTo(ConstraintCount(a, BetterSanctumSettings.BlockValue));
+        if (neverEnter != 0)
         {
-            return b[BetterSanctumSettings.BlockValue].CompareTo(a[BetterSanctumSettings.BlockValue]);
+            return neverEnter;
         }
 
         return WeighTiers(a).CompareTo(WeighTiers(b));
@@ -754,6 +792,9 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
 
     // How many rooms of each tier this room contributes. Currency counts its best slot
     // only, since the three offers are one reward at different timings and you take one.
+    // How many rooms of each tier this room contributes, kept per axis. Currency counts
+    // its best slot only, since the three offers are one reward at different timings and
+    // you take one.
     private int[] EvaluateRoom(SanctumRoomElement room, int floor)
     {
         var counts = new int[RouteValueSize];
@@ -762,9 +803,8 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
         // before that it is an ordinary offer.
         var thirdSlotMultiplier = floor >= 4 ? 2 : 1;
 
-        // Best slot only - the three offers are one reward at different timings and you
-        // take one - chosen on what the slot is actually worth, multiplier included, so a
-        // doubled tier-2 does not displace a tier-1 taken now.
+        // Chosen on what the slot is worth with its multiplier applied, so a doubled
+        // tier-2 does not displace a tier-1 you could take immediately.
         var bestSlotValue = -1;
         var bestSlotWorth = 0;
         var bestSlotMultiplier = 1;
@@ -773,7 +813,7 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
             var value = AdjustCurrencyValue(Settings.GetCurrencyTier(reward.CurrencyName, order), floor);
             if (value == BetterSanctumSettings.PrioritizeValue)
             {
-                counts[BetterSanctumSettings.PrioritizeValue]++;
+                counts[Slot(AxisReward, BetterSanctumSettings.PrioritizeValue)]++;
                 continue;
             }
 
@@ -784,7 +824,7 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
             }
 
             var multiplier = order == 2 ? thirdSlotMultiplier : 1;
-            var worth = TierWeights[value] * multiplier;
+            var worth = RewardWeights[value] * multiplier;
             if (bestSlotValue < 0 || worth > bestSlotWorth)
             {
                 bestSlotValue = value;
@@ -796,26 +836,31 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
         if (bestSlotValue >= 0)
         {
             // Counting it twice is what doubles its weight
-            counts[bestSlotValue] += bestSlotMultiplier;
+            counts[Slot(AxisReward, bestSlotValue)] += bestSlotMultiplier;
         }
 
         foreach (var roomTypeId in new[] { room.Data.FightRoom?.RoomType?.Id, room.Data.RewardRoom?.RoomType?.Id })
         {
-            if (roomTypeId != null)
+            if (roomTypeId == null)
             {
-                counts[AdjustRoomValue(Settings.GetRoomTier(roomTypeId), roomTypeId, floor)]++;
-                if (roomTypeId == "Deal" && floor >= 3)
-                {
-                    // Worth more than a tier-2 reward but less than a tier-1, since the
-                    // terms are unknowable until entered and pay out best late
-                    counts[BonusIndex] += DealLateFloorBonus * Settings.Routing.ContextBiasStrength.Value;
-                }
+                continue;
+            }
+
+            counts[Slot(AxisRoom, AdjustRoomValue(Settings.GetRoomTier(roomTypeId), roomTypeId, floor))]++;
+
+            // From floor 3 a deal is effectively a reward, but an unknown one, so it is
+            // worth less than a tier-1 you can read off the map. It clears a low reward
+            // and a good room comfortably, and roughly breaks even against a bad
+            // affliction - which is where the judgement call actually sits.
+            if (roomTypeId == "Deal" && floor >= 3)
+            {
+                counts[BonusIndex] += Settings.Routing.DealValueLateFloors.Value;
             }
         }
 
         if (room.Data.RoomEffect?.ReadableName is { } effectName)
         {
-            counts[Settings.GetAfflictionTier(effectName)]++;
+            counts[Slot(AxisAffliction, Settings.GetAfflictionTier(effectName))]++;
         }
 
         return counts;
