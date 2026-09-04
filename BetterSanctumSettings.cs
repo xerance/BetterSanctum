@@ -898,11 +898,13 @@ public class MapDisplaySettings
     [JsonIgnore]
     public CustomNode Help { get; set; } = SettingsHelp.Block(
         "Text and connection lines drawn over the Sanctum floor map.",
-        "Each connection carries three stacked lines - currency, room type, affliction - coloured by the best of that kind reachable through it. Set line thickness to 0 to hide them and leave only the route frame.");
+        "Each connection carries three stacked lines - currency, room type, affliction - coloured by the best of that kind reachable through it. Set line thickness to 0 to hide them and leave only the route frame.",
+        "Hide under game UI drops any text, frame or line that would be covered by an open panel or the chat box, the same way the overlay already gives way to a room tooltip.");
 
     public ColorNode TextColor { get; set; } = new ColorNode(Color.White);
     public ColorNode BackgroundColor { get; set; } = new ColorNode(Color.Black with { A = 128 });
     public RangeNode<int> ConnectionLineThickness { get; set; } = new RangeNode<int>(0, 0, 10);
+    public ToggleNode HideUnderGameUi { get; set; } = new ToggleNode(true);
     public ToggleNode ShowEffectId { get; set; } = new ToggleNode(false);
     public ToggleNode ShowEffectName { get; set; } = new ToggleNode(true);
     public ToggleNode ShowEffectDescription { get; set; } = new ToggleNode(true);

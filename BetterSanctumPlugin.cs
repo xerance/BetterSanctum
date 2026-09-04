@@ -40,6 +40,54 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
         return textSize;
     }
 
+    // The overlay already gave way to a room tooltip. Panels the game opens over the map
+    // are the same problem, so they are collected here and treated identically.
+    private List<RectangleF> CollectObstructions(RectangleF tooltipRect)
+    {
+        var obstructions = new List<RectangleF>();
+        if (tooltipRect.Width > 0 && tooltipRect.Height > 0)
+        {
+            obstructions.Add(tooltipRect);
+        }
+
+        if (!Settings.MapDisplay.HideUnderGameUi)
+        {
+            return obstructions;
+        }
+
+        var ui = GameController.IngameState.IngameUi;
+        // UIHover is deliberately absent: it is the room under the cursor as often as it
+        // is a panel, and blanking the room you are pointing at helps nobody.
+        foreach (var panel in new[] { ui.OpenLeftPanel, ui.OpenRightPanel, ui.ChatBox })
+        {
+            if (panel is not { IsVisible: true })
+            {
+                continue;
+            }
+
+            var rect = panel.GetClientRectCache;
+            if (rect.Width > 0 && rect.Height > 0)
+            {
+                obstructions.Add(rect);
+            }
+        }
+
+        return obstructions;
+    }
+
+    private static bool IsObstructed(List<RectangleF> obstructions, RectangleF rect)
+    {
+        foreach (var obstruction in obstructions)
+        {
+            if (obstruction.Intersects(rect))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private void PreventLastOffer()
     {
         if (!GameController.IngameState.IngameUi.SanctumRewardWindow.IsVisible)
@@ -125,6 +173,8 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
         {
             tooltipRect = hoveredRoom.Tooltip.GetClientRectCache;
         }
+
+        var obstructions = CollectObstructions(tooltipRect);
 
         var tierMap = new Dictionary<(int, int), (List<int> CurrencyTier, int? RoomTier, int? AfflictionTier)>();
         var roomsByLayer = floorWindow.RoomsByLayer;
@@ -367,7 +417,7 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
             {
                 var from = roomsByLayer[bestRouteOrder[step - 1].Layer][bestRouteOrder[step - 1].Room].GetClientRectCache;
                 var to = roomsByLayer[bestRouteOrder[step].Layer][bestRouteOrder[step].Room].GetClientRectCache;
-                if (from.Intersects(tooltipRect) || to.Intersects(tooltipRect))
+                if (IsObstructed(obstructions, from) || IsObstructed(obstructions, to))
                 {
                     continue;
                 }
@@ -406,7 +456,7 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
                             }
 
                             var rightPoint = new Vector2(connectedRoom.GetClientRectCache.Left + 15, connectedRoom.GetClientRectCache.Center.Y);
-                            if (tooltipRect.Intersects(new RectangleF(leftPoint.X, Math.Min(leftPoint.Y, rightPoint.Y),
+                            if (IsObstructed(obstructions, new RectangleF(leftPoint.X, Math.Min(leftPoint.Y, rightPoint.Y),
                                     rightPoint.X - leftPoint.X,
                                     Math.Max(leftPoint.Y, rightPoint.Y) -
                                     Math.Min(leftPoint.Y, rightPoint.Y))))
@@ -433,7 +483,7 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
                     }
                 }
 
-                if (room.GetClientRectCache.Intersects(tooltipRect))
+                if (IsObstructed(obstructions, room.GetClientRectCache))
                 {
                     continue;
                 }
