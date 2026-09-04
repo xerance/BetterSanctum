@@ -39,9 +39,6 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
         return base.Initialise();
     }
 
-    // Returns the size whether or not it draws, so a suppressed line still advances the
-    // layout and the rest of the block stays where it belongs. Tested per line because a
-    // room's text runs well below its own box and can reach a tooltip the box does not.
     // Resolved lazily and retried: Ninja Price registers its bridge method in its own
     // Initialise, which may run after ours. Null simply means it is not installed, and
     // prices are then left out rather than the feature failing loudly.
@@ -91,6 +88,9 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
         }
     }
 
+    // Returns the size whether or not it draws, so a suppressed line still advances the
+    // layout and the rest of the block stays where it belongs. Tested per line because a
+    // room's text runs well below its own box and can reach a tooltip the box does not.
     private Vector2 DrawTextWithBackground(string text, Vector2 position, Color color, Color backgroundColor)
     {
         var textSize = Graphics.MeasureText(text);
@@ -171,8 +171,6 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
         return offerWindow is { IsVisible: true } ? offerWindow : null;
     }
 
-    // Offer text carries the quantity, which room data does not appear to expose. Logged
-    // verbatim rather than parsed, so the format can be read off real data first.
     // Reward quantity is not in room data - every member but CurrencyName reads absent -
     // so the game's own tooltip is the only place it appears while the map is open.
     private static void CollectText(Element element, List<string> into, int depth)
@@ -211,6 +209,8 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
         }
     }
 
+    // Offer text carries the quantity too. Logged verbatim rather than parsed, so the
+    // real format can be read off actual data first.
     private void TrackOfferWindow()
     {
         var offerWindow = GetOfferWindow();
@@ -1029,6 +1029,41 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
 
     // How many rooms of each tier this room contributes. Currency counts its best slot
     // only, since the three offers are one reward at different timings and you take one.
+    // Reward quantity is not readable, so it is assumed: one of everything, except the
+    // third slot on floor 4 which pays double. That assumption is near exact for the
+    // expensive currencies that decide routes - divines and fracturing arrive in ones and
+    // twos - and badly understates cheap ones like chaos, which arrive in stacks of ten
+    // but are rated low enough that it does not matter.
+    private int PricePointsFor(SanctumDeferredRewardCategory reward, int order, int floor)
+    {
+        if (!Settings.Routing.UsePricesInRouting)
+        {
+            return 0;
+        }
+
+        var lookup = ResolvePriceLookup();
+        if (lookup == null || reward?.BaseType == null)
+        {
+            return 0;
+        }
+
+        try
+        {
+            var assumedQuantity = order == 2 && floor >= 4 ? 2 : 1;
+            var chaos = lookup(reward.BaseType) * assumedQuantity;
+            if (chaos <= 0)
+            {
+                return 0;
+            }
+
+            return (int)Math.Min(chaos / Settings.Routing.ChaosPerPoint.Value, Settings.Routing.PricePointCap.Value);
+        }
+        catch (Exception)
+        {
+            return 0;
+        }
+    }
+
     // How many rooms of each tier this room contributes, kept per axis. Currency counts
     // its best slot only, since the three offers are one reward at different timings and
     // you take one.
@@ -1045,6 +1080,7 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
         var bestSlotValue = -1;
         var bestSlotWorth = 0;
         var bestSlotMultiplier = 1;
+        var bestSlotPricePoints = 0;
         foreach (var (reward, order) in room.GetRoomsWithOrder())
         {
             var value = AdjustCurrencyValue(Settings.GetCurrencyTier(reward.CurrencyName, order), floor);
@@ -1061,12 +1097,14 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
             }
 
             var multiplier = order == 2 ? thirdSlotMultiplier : 1;
-            var worth = RewardWeights[value] * multiplier;
+            var pricePoints = PricePointsFor(reward, order, floor);
+            var worth = RewardWeights[value] * multiplier + pricePoints;
             if (bestSlotValue < 0 || worth > bestSlotWorth)
             {
                 bestSlotValue = value;
                 bestSlotWorth = worth;
                 bestSlotMultiplier = multiplier;
+                bestSlotPricePoints = pricePoints;
             }
         }
 
@@ -1074,6 +1112,10 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
         {
             // Counting it twice is what doubles its weight
             counts[Slot(AxisReward, bestSlotValue)] += bestSlotMultiplier;
+
+            // Capped, so price orders currencies you rated alike without ever
+            // reordering the tiers themselves
+            counts[BonusIndex] += bestSlotPricePoints;
         }
 
         foreach (var roomTypeId in new[] { room.Data.FightRoom?.RoomType?.Id, room.Data.RewardRoom?.RoomType?.Id })
