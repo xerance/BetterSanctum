@@ -758,8 +758,9 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
     {
         var counts = new int[RouteValueSize];
 
-        // The third slot is the end-of-sanctum deferral, which pays out double
-        var slotMultipliers = new[] { 1, 1, 2 };
+        // The third slot is the end-of-sanctum deferral. It only pays double from floor 4;
+        // before that it is an ordinary offer.
+        var thirdSlotMultiplier = floor >= 4 ? 2 : 1;
 
         // Best slot only - the three offers are one reward at different timings and you
         // take one - chosen on what the slot is actually worth, multiplier included, so a
@@ -782,7 +783,7 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
                 continue;
             }
 
-            var multiplier = slotMultipliers[Math.Min(order, slotMultipliers.Length - 1)];
+            var multiplier = order == 2 ? thirdSlotMultiplier : 1;
             var worth = TierWeights[value] * multiplier;
             if (bestSlotValue < 0 || worth > bestSlotWorth)
             {
