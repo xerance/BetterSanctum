@@ -358,43 +358,17 @@ public class BetterSanctumSettings : ISettings
         CurrentProfile = newName;
     }
 
-    // Values run 0-7 with 4 neutral. The ends are constraints rather than weights:
-    // 0 means route through this if at all possible, 7 means do not route through it.
-    // 1-3 and 5-6 are ordinary positive and negative weights.
+    // Values run 0-8 with 4 neutral. The ends are constraints rather than weights and
+    // score nothing: 0 means route through this if at all possible, 8 means never. 1-3
+    // and 5-7 are ordinary positive and negative weights, 7 being an outsized penalty.
     public const int PrioritizeValue = 0;
     public const int NeutralValue = 4;
     public const int BlockValue = 8;
-    public static readonly IReadOnlyDictionary<string, int> DefaultAfflictionTiers = new Dictionary<string, int>
-    {
-        ["Accursed Prism"] = 6,
-        ["Poisoned Water"] = 6,
-        ["Cutpurse"] = 6,
-        ["Purple Smoke"] = 6,
-        ["Veiled Sight"] = 6,
-        ["Red Smoke"] = 6,
-        ["Golden Smoke"] = 6,
-        ["Deadly Snare"] = 6,
-        ["Floor Tax"] = 6,
-        ["Liquid Cowardice"] = 6,
-        ["Unhallowed Amulet"] = 6,
-        ["Rusted Coin"] = 6,
-        ["Chiselled Stone"] = 6,
-        ["Fiendish Wings"] = 6,
-        ["Empty Trove"] = 6,
-        ["Demonic Skull"] = 6,
-        ["Unassuming Brick"] = 6,
-        ["Worn Sandals"] = 6,
-        ["Ghastly Scythe"] = 6,
-        ["Rapid Quicksand"] = 6,
-        ["Black Smoke"] = 6,
-        ["Deceptive Mirror"] = 6,
-        ["Tattered Blindfold"] = 2,
-    };
 
-    // Bare names apply to every reward slot; a "name/slot" key overrides one slot.
+    // A bare name applies to every reward slot; a "name/slot" key overrides one slot.
     public static readonly IReadOnlyDictionary<string, int> DefaultCurrencyTiers = new Dictionary<string, int>
     {
-        ["Mirrors of Kalandra"] = PrioritizeValue,
+        ["Mirrors of Kalandra"] = 0,
         ["Divine Orbs"] = 1,
         ["Fracturing Orbs"] = 1,
         ["Volatile Vaal Orbs"] = 1,
@@ -403,38 +377,99 @@ public class BetterSanctumSettings : ISettings
         ["Veiled Chaos Orbs"] = 2,
         ["Orbs of Annulment"] = 2,
         ["Exalted Orbs"] = 2,
+        ["Chaos Orbs/0"] = 3,
+        ["Chaos Orbs/1"] = 3,
+        ["Chaos Orbs/2"] = 4,
+        ["Orbs of Annulment/0"] = 3,
+        ["Orbs of Annulment/2"] = 4,
+        ["Orbs of Annulment/1"] = 3,
+        ["Exalted Orbs/0"] = 3,
+        ["Exalted Orbs/1"] = 3,
+        ["Exalted Orbs/2"] = 3,
+        ["Ancient Orbs/0"] = 3,
+        ["Ancient Orbs/1"] = 3,
+        ["Sacred Orbs/0"] = 3,
+        ["Sacred Orbs/1"] = 3,
+        ["Sacred Orbs/2"] = 3,
+        ["Stacked Decks/0"] = 3,
+        ["Stacked Decks/1"] = 3,
+        ["Stacked Decks/2"] = 4,
+        ["Chromatic Orbs/0"] = 3,
+        ["Chromatic Orbs/1"] = 3,
     };
 
-    // Fight rooms are graded on how much resolve they tend to cost, reward rooms on what
+    // Fight rooms are graded on the resolve they tend to cost, reward rooms on what
     // they hand you. Boss and Final sit at neutral deliberately: they are in the last
-    // layer, which every route passes through, so their value cannot separate two routes.
-    // Deferral is mildly positive rather than neutral - it is the only room type that
-    // carries currency, and the currency itself is counted separately.
+    // layer that every route passes through, so their value cannot separate two routes.
     public static readonly IReadOnlyDictionary<string, int> DefaultRoomTiers = new Dictionary<string, int>
     {
-        // Fight rooms
         ["Explore"] = 3,
-        ["Maze"] = 3,
-        ["Puzzle"] = 3,
-        ["Gauntlet"] = 3,
+        ["Maze"] = 4,
+        ["Puzzle"] = 4,
+        ["Gauntlet"] = 4,
         ["Lair"] = 4,
         ["Vault"] = 4,
         ["Boss"] = 4,
-        ["Miniboss"] = 5,
+        ["Miniboss"] = 4,
         ["Arena"] = 6,
-
-        // Reward rooms
-        ["Merchant"] = 2,
-        ["BoonFountain"] = 2,
-        ["RainbowFountain"] = 2,
-        ["Deferral"] = 3,
-        ["Fountain"] = 3,
+        ["Merchant"] = 3,
+        ["BoonFountain"] = 3,
+        ["RainbowFountain"] = 3,
+        ["Deferral"] = 4,
+        ["Fountain"] = 4,
         ["Treasure"] = 3,
         ["TreasureMinor"] = 4,
         ["Deal"] = 4,
         ["Final"] = 4,
-        ["CurseFountain"] = 6,
+        ["CurseFountain"] = 4,
     };
+
+    // 8 is reserved for the run-enders. Everything else is a weight, not a bar.
+    public static readonly IReadOnlyDictionary<string, int> DefaultAfflictionTiers = new Dictionary<string, int>
+    {
+        ["Accursed Prism"] = 8,
+        ["Poisoned Water"] = 8,
+        ["Cutpurse"] = 6,
+        ["Purple Smoke"] = 7,
+        ["Veiled Sight"] = 6,
+        ["Red Smoke"] = 6,
+        ["Golden Smoke"] = 8,
+        ["Deadly Snare"] = 8,
+        ["Floor Tax"] = 6,
+        ["Liquid Cowardice"] = 7,
+        ["Unhallowed Amulet"] = 6,
+        ["Rusted Coin"] = 6,
+        ["Chiselled Stone"] = 6,
+        ["Fiendish Wings"] = 6,
+        ["Empty Trove"] = 6,
+        ["Demonic Skull"] = 6,
+        ["Unassuming Brick"] = 6,
+        ["Worn Sandals"] = 5,
+        ["Ghastly Scythe"] = 8,
+        ["Rapid Quicksand"] = 6,
+        ["Black Smoke"] = 5,
+        ["Deceptive Mirror"] = 7,
+        ["Tattered Blindfold"] = 5,
+        ["Door Tax"] = 6,
+        ["Anomaly Attractor"] = 5,
+        ["Unquenched Thirst"] = 5,
+        ["Dark Pit"] = 5,
+        ["Orb of Negation"] = 8,
+        ["Unholy Urn"] = 5,
+        ["Haemorrhage"] = 5,
+        ["Mark of Terror"] = 5,
+        ["Concealed Anomaly"] = 5,
+        ["Spiked Shell"] = 5,
+        ["Honed Claws"] = 5,
+        ["Unhallowed Ring"] = 6,
+        ["Tight Choker"] = 5,
+        ["Spilt Purse"] = 5,
+        ["Charred Coin"] = 5,
+        ["Phantom Illusion"] = 6,
+        ["Corrupted Lockpick"] = 5,
+        ["Glass Shard"] = 7,
+    };
+
 
     public const int RunTypeNormal = 0;
     public const int RunTypeHourOfDivinity = 1;
@@ -622,7 +657,7 @@ public class ProfileContent
 
     // Superseded by RunType. Read once by MigrateProfile, unused after.
     public bool DuplicateRun = false;
-    public int HideCurrencyBelowTier = BetterSanctumSettings.BlockValue;
+    public int HideCurrencyBelowTier = 3;
 
     public Dictionary<string, int> CurrencyTiers = new(BetterSanctumSettings.DefaultCurrencyTiers);
 
