@@ -585,8 +585,14 @@ public class BetterSanctumSettings : ISettings
             Profiles[profileName] = ProfileContent.CreateNew();
         }
 
-        // Pin it, so a null or stale CurrentProfile cannot drift to a different profile later
-        CurrentProfile = profileName;
+        // Only fill in a name that was never set. Writing the fallback back unconditionally
+        // destroyed the saved selection whenever this ran before Profiles was populated,
+        // which is why the active profile did not survive a restart. A name that is set
+        // but not yet found is left alone so it can match once the profiles load.
+        if (CurrentProfile == null)
+        {
+            CurrentProfile = profileName;
+        }
 
         MigrateProfile(Profiles[profileName]);
 
@@ -634,6 +640,9 @@ public class BetterSanctumSettings : ISettings
     public InRoomSettings InRoom { get; set; } = new InRoomSettings();
     public DebugSettings Debug { get; set; } = new DebugSettings();
 
+    // Replace, or the shipped Default is merged back into a saved set every load and
+    // cannot be deleted for good.
+    [JsonProperty(ObjectCreationHandling = ObjectCreationHandling.Replace)]
     public Dictionary<string, ProfileContent> Profiles = new Dictionary<string, ProfileContent>
     {
         ["Default"] = ProfileContent.CreateNew(),
@@ -659,10 +668,13 @@ public class ProfileContent
     public bool DuplicateRun = false;
     public int HideCurrencyBelowTier = 3;
 
+    [JsonProperty(ObjectCreationHandling = ObjectCreationHandling.Replace)]
     public Dictionary<string, int> CurrencyTiers = new(BetterSanctumSettings.DefaultCurrencyTiers);
 
+    [JsonProperty(ObjectCreationHandling = ObjectCreationHandling.Replace)]
     public Dictionary<string, int> RoomTiers = new(BetterSanctumSettings.DefaultRoomTiers);
 
+    [JsonProperty(ObjectCreationHandling = ObjectCreationHandling.Replace)]
     public Dictionary<string, int> AfflictionTiers = new(BetterSanctumSettings.DefaultAfflictionTiers);
 
     public static ProfileContent CreateNew()
