@@ -340,6 +340,8 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
                     "WINDOW " + string.Join(", ", DebugWindowMemberNames.Select(name => DescribeMember(floorWindow, name))),
                     "FLOORDATA " + string.Join(", ", DebugWindowMemberNames.Select(name => DescribeMember(floorWindow.FloorData, name))),
                 };
+
+                DumpRewardTables(lines);
                 for (var layerIndex = 0; layerIndex < roomsByLayer.Count; layerIndex++)
                 {
                     var roomLayer = roomsByLayer[layerIndex];
@@ -695,6 +697,72 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
         "Reward1", "Reward2", "Reward3",
         "Cost", "CostStat", "CostMultiplier", "DeferralCategory",
     };
+
+    // Every readable property, for types whose members are not known in advance
+    private static string DescribeAllMembers(object target)
+    {
+        if (target == null)
+        {
+            return "<null>";
+        }
+
+        var parts = new List<string>();
+        foreach (var property in target.GetType().GetProperties())
+        {
+            if (property.GetIndexParameters().Length > 0)
+            {
+                continue;
+            }
+
+            try
+            {
+                parts.Add($"{property.Name}={Describe(property.GetValue(target), 1)}");
+            }
+            catch (Exception e)
+            {
+                parts.Add($"{property.Name}=<{e.GetType().Name}>");
+            }
+        }
+
+        return string.Join(", ", parts);
+    }
+
+    // The reward amount is in neither the room nor its reward category, so the game's own
+    // reward tables are the remaining place it could live.
+    private void DumpRewardTables(List<string> lines)
+    {
+        var files = RemoteMemoryObject.pTheGame?.Files;
+        if (files == null)
+        {
+            return;
+        }
+
+        foreach (var (name, entries) in new (string, System.Collections.IEnumerable)[]
+                 {
+                     ("DeferredRewards", files.SanctumDeferredRewards?.EntriesList),
+                     ("DeferredRewardCategories", files.SanctumDeferredRewardCategories?.EntriesList),
+                 })
+        {
+            if (entries == null)
+            {
+                lines.Add($"{name} <absent>");
+                continue;
+            }
+
+            var index = 0;
+            foreach (var entry in entries)
+            {
+                lines.Add($"{name}[{index}] {DescribeAllMembers(entry)}");
+                if (++index >= 500)
+                {
+                    lines.Add($"{name} truncated at {index}");
+                    break;
+                }
+            }
+
+            lines.Add($"{name} count={index}");
+        }
+    }
 
     private static string DescribeMember(object target, string name)
     {
