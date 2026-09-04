@@ -5,6 +5,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using ExileCore;
+using ExileCore.PoEMemory;
 using ExileCore.PoEMemory.Elements.Sanctum;
 using ExileCore.PoEMemory.MemoryObjects;
 using ExileCore.Shared.Enums;
@@ -26,10 +27,12 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
     private string _lastKnownFloorPrefix;
     private List<RectangleF> _obstructions = new List<RectangleF>();
     private EffectHelper _effectHelper;
+    private RewardTracker _rewardTracker;
 
     public override bool Initialise()
     {
         _effectHelper = new EffectHelper(GameController, Graphics, Settings);
+        _rewardTracker = new RewardTracker(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "sanctum-rewards.csv"));
         return base.Initialise();
     }
 
@@ -97,23 +100,53 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
         return false;
     }
 
-    private void PreventLastOffer()
+    // The window moves between two child paths depending on the room, so both are tried
+    private Element GetOfferWindow()
     {
-        if (!GameController.IngameState.IngameUi.SanctumRewardWindow.IsVisible)
-            return;
-
-        var pathToOfferWindowRows = new int[] { 0, 1, 0, 1 };
-        var sanctumOfferWindow = GameController.IngameState.IngameUi.SanctumRewardWindow.GetChildFromIndices(pathToOfferWindowRows);
-        if (!sanctumOfferWindow.IsVisible)
+        var rewardWindow = GameController.IngameState.IngameUi.SanctumRewardWindow;
+        if (!rewardWindow.IsVisible)
         {
-            sanctumOfferWindow = GameController.IngameState.IngameUi.SanctumRewardWindow.GetChildFromIndices(new int[] { 0, 1, 0, 2 });
+            return null;
+        }
 
-            if (!sanctumOfferWindow.IsVisible)
+        var offerWindow = rewardWindow.GetChildFromIndices(new[] { 0, 1, 0, 1 });
+        if (offerWindow is { IsVisible: true })
+        {
+            return offerWindow;
+        }
+
+        offerWindow = rewardWindow.GetChildFromIndices(new[] { 0, 1, 0, 2 });
+        return offerWindow is { IsVisible: true } ? offerWindow : null;
+    }
+
+    // Offer text carries the quantity, which room data does not appear to expose. Logged
+    // verbatim rather than parsed, so the format can be read off real data first.
+    private void TrackOfferWindow()
+    {
+        var offerWindow = GetOfferWindow();
+        if (offerWindow == null)
+        {
+            return;
+        }
+
+        var floor = BetterSanctumSettings.GetFloorForRoomPrefix(_lastKnownFloorPrefix);
+        foreach (var offer in offerWindow.Children)
+        {
+            var text = offer.Children.Count > 1 ? offer.Children[1].Text : null;
+            if (!string.IsNullOrWhiteSpace(text))
             {
-                return;
+                _rewardTracker.Add("offer", floor, _lastKnownFloorPrefix, "", "", offer.IndexInParent.ToString(), "", text.Replace(";", ",").Replace("\n", " "));
             }
         }
-            
+    }
+
+    private void PreventLastOffer()
+    {
+        var sanctumOfferWindow = GetOfferWindow();
+        if (sanctumOfferWindow == null)
+        {
+            return;
+        }
 
         var dupOffer = sanctumOfferWindow.Children.Where(x => Settings.CurrencyDuplicate.Any(y => x.Children[1].Text.Contains(y)));
         var noDupOffer = sanctumOfferWindow.Children.Where(x => Settings.CurrencyDuplicate.Any(y => !x.Children[1].Text.Contains(y)));
@@ -153,6 +186,11 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
         if (Settings.DuplicateRun)
         {
             PreventLastOffer();
+        }
+
+        if (Settings.Debug.TrackRewards)
+        {
+            TrackOfferWindow();
         }
         
         // Only inside a Sanctum, and before the floor-map return below, since these draw
@@ -197,6 +235,30 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
                 {
                     _lastKnownFloorPrefix = probeId.Split('_')[0];
                     break;
+                }
+            }
+        }
+
+        if (Settings.Debug.TrackRewards)
+        {
+            var trackedFloor = BetterSanctumSettings.GetFloorForRoomPrefix(_lastKnownFloorPrefix);
+            for (var layerIndex = 0; layerIndex < roomsByLayer.Count; layerIndex++)
+            {
+                var roomLayer = roomsByLayer[layerIndex];
+                for (var roomIndex = 0; roomIndex < roomLayer.Count; roomIndex++)
+                {
+                    foreach (var (reward, order) in roomLayer[roomIndex].GetRoomsWithOrder())
+                    {
+                        // Anything the reward object exposes beyond the name, in case one
+                        // of these turns out to carry the quantity
+                        var detail = string.Join(" ", DebugRewardMemberNames
+                            .Where(name => name != "CurrencyName")
+                            .Select(name => DescribeMember(reward, name))
+                            .Where(x => !x.EndsWith("<absent>") && !x.EndsWith("null")));
+                        _rewardTracker.Add("map", trackedFloor, _lastKnownFloorPrefix,
+                            layerIndex.ToString(), roomIndex.ToString(), order.ToString(),
+                            reward.CurrencyName ?? "", detail);
+                    }
                 }
             }
         }
