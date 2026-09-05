@@ -369,9 +369,9 @@ public class BetterSanctumSettings : ISettings
     // from offer text across floors 1 to 4: quantity depends on the currency and the slot
     // and not at all on the floor - chaos is 5/10/14 on floor 3 exactly as on floor 4.
     //
-    // The default covers currencies not yet seen. It is deliberately the shape the
-    // expensive ones take, since those are the only currencies routing prices.
-    public static readonly int[] DefaultRewardQuantity = { 1, 1, 2 };
+    // The default covers currencies not yet seen - divine, fracturing and mirror among
+    // them - and matches the shape every single-item reward takes.
+    public static readonly int[] DefaultRewardQuantity = { 1, 1, 1 };
 
     public static readonly IReadOnlyDictionary<string, int[]> RewardQuantities = new Dictionary<string, int[]>
     {
@@ -394,15 +394,22 @@ public class BetterSanctumSettings : ISettings
         ["Divine Vessels"] = new[] { 1, 1, 1 },
         ["Orbs of Annulment"] = new[] { 1, 1, 1 },
         ["Volatile Vaal Orbs"] = new[] { 1, 1, 1 },
-        ["Sacred Orbs"] = new[] { 1, 1, 2 },
+        ["Sacred Orbs"] = new[] { 1, 1, 1 },
     };
 
-    public static int GetRewardQuantity(string currencyName, int slot)
+    public static int GetRewardQuantity(string currencyName, int slot, int floor)
     {
         var quantities = currencyName != null && RewardQuantities.TryGetValue(currencyName, out var known)
             ? known
             : DefaultRewardQuantity;
-        return quantities[Math.Clamp(slot, 0, quantities.Length - 1)];
+        var quantity = quantities[Math.Clamp(slot, 0, quantities.Length - 1)];
+
+        // Single-item rewards double in the last slot on floor 4. Reported for divine,
+        // fracturing and volatile vaal, and corroborated by sacred orbs: the logs show it
+        // as 2 at floor 4 slot 2 while every other single-item reward reads 1 elsewhere.
+        // Stacked currencies do not do this - chaos is 14 in that slot on floors 2 and 4
+        // alike - so the rule is tied to the quantity, not applied across the board.
+        return quantity == 1 && slot == 2 && floor >= 4 ? 2 : quantity;
     }
 
     // A bare name applies to every reward slot; a "name/slot" key overrides one slot.

@@ -1193,7 +1193,7 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
     // only, since the three offers are one reward at different timings and you take one.
     // Quantity comes from measured offer text rather than an assumption. It varies by
     // currency and slot and not by floor, so no floor term appears here.
-    private int PricePointsFor(SanctumDeferredRewardCategory reward, int order, int value)
+    private int PricePointsFor(SanctumDeferredRewardCategory reward, int order, int floor, int value)
     {
         // Gated on the tier you assigned rather than the floor-adjusted one. The floor 3
         // bonus promotes mid currency a tier, which would drag chaos into the priced band
@@ -1217,7 +1217,7 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
 
         try
         {
-            var quantity = BetterSanctumSettings.GetRewardQuantity(reward.CurrencyName, order);
+            var quantity = BetterSanctumSettings.GetRewardQuantity(reward.CurrencyName, order, floor);
             var chaos = lookup(reward.BaseType) * quantity;
             if (chaos <= 0)
             {
@@ -1266,7 +1266,7 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
             }
 
             var multiplier = order == 2 ? thirdSlotMultiplier : 1;
-            var pricePoints = PricePointsFor(reward, order, assignedValue);
+            var pricePoints = PricePointsFor(reward, order, floor, assignedValue);
             var worth = RewardWeights[value] * multiplier + pricePoints;
             if (bestSlotValue < 0 || worth > bestSlotWorth)
             {
