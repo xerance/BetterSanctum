@@ -41,10 +41,28 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
     private double _divineChaosRate;
     private readonly Stopwatch _sinceDivineRateStopwatch = Stopwatch.StartNew();
 
+    // The HUD's own Logs folder, rather than beside Loader.exe: DirectoryFullName is not
+    // dependable for source-compiled plugins, and dropping files in the root is untidy.
+    private static string LogFilePath(string fileName)
+    {
+        var directory = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Logs");
+        try
+        {
+            Directory.CreateDirectory(directory);
+        }
+        catch (Exception)
+        {
+            // Fall back to the root if Logs cannot be created
+            return Path.Combine(AppDomain.CurrentDomain.BaseDirectory, fileName);
+        }
+
+        return Path.Combine(directory, fileName);
+    }
+
     public override bool Initialise()
     {
         _effectHelper = new EffectHelper(GameController, Graphics, Settings);
-        _rewardTracker = new RewardTracker(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "sanctum-rewards.csv"));
+        _rewardTracker = new RewardTracker(LogFilePath("sanctum-rewards.csv"));
         return base.Initialise();
     }
 
@@ -519,9 +537,7 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
         if (Settings.Debug.DebugDumpRoomData && _debugDumpPending)
         {
             _debugDumpPending = false;
-            // Next to Loader.exe rather than the plugin folder: DirectoryFullName is not
-            // dependable for source-compiled plugins, and the HUD root is easy to find.
-            var dumpPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "room-dump.txt");
+            var dumpPath = LogFilePath("room-dump.txt");
             try
             {
                 // Room ids carry the floor name; the area name does not reliably
