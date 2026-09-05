@@ -9,6 +9,7 @@ using ExileCore.PoEMemory;
 using ExileCore.PoEMemory.Elements.Sanctum;
 using ExileCore.PoEMemory.FilesInMemory.Sanctum;
 using ExileCore.PoEMemory.MemoryObjects;
+using ExileCore.PoEMemory.Models;
 using ExileCore.Shared.Enums;
 using ExileCore.Shared.Helpers;
 using ExileCore.Shared.Nodes;
