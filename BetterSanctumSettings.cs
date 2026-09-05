@@ -365,6 +365,46 @@ public class BetterSanctumSettings : ISettings
     public const int NeutralValue = 4;
     public const int BlockValue = 8;
 
+    // Observed quantities per reward slot, keyed by the category's CurrencyName. Measured
+    // from offer text across floors 1 to 4: quantity depends on the currency and the slot
+    // and not at all on the floor - chaos is 5/10/14 on floor 3 exactly as on floor 4.
+    //
+    // The default covers currencies not yet seen. It is deliberately the shape the
+    // expensive ones take, since those are the only currencies routing prices.
+    public static readonly int[] DefaultRewardQuantity = { 1, 1, 2 };
+
+    public static readonly IReadOnlyDictionary<string, int[]> RewardQuantities = new Dictionary<string, int[]>
+    {
+        ["Orbs of Alteration"] = new[] { 9, 20, 30 },
+        ["Orbs of Chance"] = new[] { 9, 20, 30 },
+        ["Jeweller's Orbs"] = new[] { 9, 20, 30 },
+        ["Orbs of Alchemy"] = new[] { 6, 14, 20 },
+        ["Orbs of Fusing"] = new[] { 6, 14, 20 },
+        ["Chaos Orbs"] = new[] { 5, 10, 14 },
+        ["Orbs of Scouring"] = new[] { 5, 10, 14 },
+        ["Orbs of Regret"] = new[] { 5, 10, 14 },
+        ["Blessed Orbs"] = new[] { 4, 8, 12 },
+        ["Vaal Orbs"] = new[] { 4, 8, 12 },
+        ["Regal Orbs"] = new[] { 4, 8, 12 },
+        ["Gemcutter's Prisms"] = new[] { 4, 8, 12 },
+        ["Chromatic Orbs"] = new[] { 4, 8, 12 },
+        ["Exalted Orbs"] = new[] { 4, 8, 12 },
+        ["Orbs of Unmaking"] = new[] { 4, 8, 12 },
+        ["Ancient Orbs"] = new[] { 1, 1, 1 },
+        ["Divine Vessels"] = new[] { 1, 1, 1 },
+        ["Orbs of Annulment"] = new[] { 1, 1, 1 },
+        ["Volatile Vaal Orbs"] = new[] { 1, 1, 1 },
+        ["Sacred Orbs"] = new[] { 1, 1, 2 },
+    };
+
+    public static int GetRewardQuantity(string currencyName, int slot)
+    {
+        var quantities = currencyName != null && RewardQuantities.TryGetValue(currencyName, out var known)
+            ? known
+            : DefaultRewardQuantity;
+        return quantities[Math.Clamp(slot, 0, quantities.Length - 1)];
+    }
+
     // A bare name applies to every reward slot; a "name/slot" key overrides one slot.
     public static readonly IReadOnlyDictionary<string, int> DefaultCurrencyTiers = new Dictionary<string, int>
     {
