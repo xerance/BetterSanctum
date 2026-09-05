@@ -122,7 +122,7 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
             }
         }
 
-        return $"{chaos:0}c";
+        return chaos < 10 ? $"{chaos:0.#}c" : $"{chaos:0}c";
     }
 
     // A unit price only. Reward quantity is not exposed anywhere in room data, so this
@@ -144,7 +144,7 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
         try
         {
             var chaos = lookup(reward.BaseType);
-            return chaos >= 1 ? $" ({FormatPrice(chaos)})" : "";
+            return $" ({FormatPrice(chaos)})";
         }
         catch (Exception)
         {
@@ -372,13 +372,10 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
                 quantity = parsed;
             }
 
-            // Just the total. The breakdown was arithmetic the reader did not ask for.
-            var total = chaos * quantity;
-            if (total >= 1)
-            {
-                var rect = offer.GetClientRect();
-                Graphics.DrawText(FormatPrice(total), new Vector2(rect.Left + 6, rect.Top + 6), Settings.MapDisplay.TextColor);
-            }
+            // Every offer is priced, however cheap. A blank row reads as a broken lookup,
+            // where "0.9c" reads as the answer it is.
+            var rect = offer.GetClientRect();
+            Graphics.DrawText(FormatPrice(chaos * quantity), new Vector2(rect.Left + 6, rect.Top + 6), Settings.MapDisplay.TextColor);
         }
     }
 
