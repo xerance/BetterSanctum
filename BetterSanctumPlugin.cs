@@ -321,50 +321,63 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
                 continue;
             }
 
+            // Both names are tried: BaseName is singular ("Orb of Fusing") and matches an
+            // offer of one, while CurrencyName is plural ("Orbs of Fusing") and matches a
+            // stack. Neither alone covers both, because the plural s sits in the middle.
+            //
+            // The longest match wins, or "Receive 1x Volatile Vaal Orb" would be priced as
+            // a Vaal Orb depending on which category came first.
+            SanctumDeferredRewardCategory matched = null;
+            var matchedLength = 0;
             foreach (var category in categories)
             {
-                var baseName = category.BaseType?.BaseName;
-                if (string.IsNullOrEmpty(baseName) || !text.Contains(baseName, StringComparison.InvariantCultureIgnoreCase))
+                if (category?.BaseType == null)
                 {
                     continue;
                 }
 
-                double chaos;
-                try
+                foreach (var name in new[] { category.BaseType.BaseName, category.CurrencyName })
                 {
-                    chaos = lookup(category.BaseType);
-                }
-                catch (Exception)
-                {
-                    break;
-                }
+                    if (string.IsNullOrEmpty(name) ||
+                        name.Length <= matchedLength ||
+                        !text.Contains(name, StringComparison.InvariantCultureIgnoreCase))
+                    {
+                        continue;
+                    }
 
-                // The offer text carries the count - "Receive 10x Chaos Orbs" - which is the
-                // quantity room data never exposes. A unit price is close to useless here:
-                // ten chaos and one chaos read identically without it.
-                var quantity = 1;
-                var match = Regex.Match(text, @"\b(\d+)\s*x\b", RegexOptions.IgnoreCase);
-                if (match.Success && int.TryParse(match.Groups[1].Value, out var parsed) && parsed > 0)
-                {
-                    quantity = parsed;
+                    matched = category;
+                    matchedLength = name.Length;
                 }
+            }
 
-                // Thresholded on the total, not the unit: twelve regals is worth showing
-                // even though one regal is under a chaos.
-                var total = chaos * quantity;
-                if (total >= 1)
-                {
-                    var label = quantity > 1
-                        ? $"{quantity} x {FormatPrice(chaos)} = {FormatPrice(total)}"
-                        : FormatPrice(chaos);
+            if (matched == null)
+            {
+                continue;
+            }
 
-                    // Inside the row rather than on its bottom edge, where it read as
-                    // belonging to the offer below
-                    var rect = offer.GetClientRect();
-                    Graphics.DrawText(label, new Vector2(rect.Left + 6, rect.Top + 6), Settings.MapDisplay.TextColor);
-                }
+            double chaos;
+            try
+            {
+                chaos = lookup(matched.BaseType);
+            }
+            catch (Exception)
+            {
+                continue;
+            }
 
-                break;
+            var quantity = 1;
+            var match = Regex.Match(text, @"\b(\d+)\s*x\b", RegexOptions.IgnoreCase);
+            if (match.Success && int.TryParse(match.Groups[1].Value, out var parsed) && parsed > 0)
+            {
+                quantity = parsed;
+            }
+
+            // Just the total. The breakdown was arithmetic the reader did not ask for.
+            var total = chaos * quantity;
+            if (total >= 1)
+            {
+                var rect = offer.GetClientRect();
+                Graphics.DrawText(FormatPrice(total), new Vector2(rect.Left + 6, rect.Top + 6), Settings.MapDisplay.TextColor);
             }
         }
     }
