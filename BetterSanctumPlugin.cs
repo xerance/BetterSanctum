@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Text.RegularExpressions;
 using ExileCore;
 using ExileCore.PoEMemory;
 using ExileCore.PoEMemory.Elements.Sanctum;
@@ -338,12 +339,29 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
                     break;
                 }
 
-                if (chaos >= 1)
+                // The offer text carries the count - "Receive 10x Chaos Orbs" - which is the
+                // quantity room data never exposes. A unit price is close to useless here:
+                // ten chaos and one chaos read identically without it.
+                var quantity = 1;
+                var match = Regex.Match(text, @"\b(\d+)\s*x\b", RegexOptions.IgnoreCase);
+                if (match.Success && int.TryParse(match.Groups[1].Value, out var parsed) && parsed > 0)
                 {
-                    // Unlike the map, every offer is priced here: three of them is not
-                    // clutter, and choosing between them is the whole point of the window.
+                    quantity = parsed;
+                }
+
+                // Thresholded on the total, not the unit: twelve regals is worth showing
+                // even though one regal is under a chaos.
+                var total = chaos * quantity;
+                if (total >= 1)
+                {
+                    var label = quantity > 1
+                        ? $"{quantity} x {FormatPrice(chaos)} = {FormatPrice(total)}"
+                        : FormatPrice(chaos);
+
+                    // Inside the row rather than on its bottom edge, where it read as
+                    // belonging to the offer below
                     var rect = offer.GetClientRect();
-                    Graphics.DrawText($"{FormatPrice(chaos)} each", new Vector2(rect.Left, rect.Bottom), Settings.MapDisplay.TextColor);
+                    Graphics.DrawText(label, new Vector2(rect.Left + 6, rect.Top + 6), Settings.MapDisplay.TextColor);
                 }
 
                 break;
