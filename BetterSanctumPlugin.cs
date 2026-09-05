@@ -733,7 +733,9 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
 
                 // Hovering isolates a room: its own text stays, everything else gets out of
                 // the way, since a floor of eight rooms writes more than can be read at once.
-                var isHovered = ReferenceEquals(room, hoveredRoom);
+                // Compared by address: Rooms and RoomsByLayer hand back separate wrapper
+                // objects for the same room, so reference equality is always false.
+                var isHovered = hoveredRoom != null && room.Address == hoveredRoom.Address;
                 if (isolating && !isHovered)
                 {
                     continue;
