@@ -27,7 +27,12 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
     // Remembered from the floor map: the reward window can be open when the map is not,
     // and the area name follows the room you stand in rather than the floor.
     private string _lastKnownFloorPrefix;
+    // Panels only, without the room tooltip. While isolating, the hovered room's own text
+    // is drawn against this: the tooltip sits on top of the room you are pointing at, so
+    // testing against it would hide exactly the information the hover asked for.
+    private List<RectangleF> _panelObstructions = new List<RectangleF>();
     private List<RectangleF> _obstructions = new List<RectangleF>();
+    private List<RectangleF> _activeObstructions;
     private EffectHelper _effectHelper;
     private RewardTracker _rewardTracker;
     private Func<BaseItemType, double> _currencyPrice;
@@ -96,7 +101,7 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
     private Vector2 DrawTextWithBackground(string text, Vector2 position, Color color, Color backgroundColor)
     {
         var textSize = Graphics.MeasureText(text);
-        if (IsObstructed(_obstructions, new RectangleF(position.X, position.Y, textSize.X, textSize.Y)))
+        if (IsObstructed(_activeObstructions ?? _obstructions, new RectangleF(position.X, position.Y, textSize.X, textSize.Y)))
         {
             return textSize;
         }
@@ -108,14 +113,9 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
 
     // The overlay already gave way to a room tooltip. Panels the game opens over the map
     // are the same problem, so they are collected here and treated identically.
-    private List<RectangleF> CollectObstructions(RectangleF tooltipRect)
+    private List<RectangleF> CollectPanelObstructions()
     {
         var obstructions = new List<RectangleF>();
-        if (tooltipRect.Width > 0 && tooltipRect.Height > 0)
-        {
-            obstructions.Add(tooltipRect);
-        }
-
         if (!Settings.MapDisplay.HideUnderGameUi)
         {
             return obstructions;
@@ -378,7 +378,14 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
             tooltipRect = hoveredRoom.Tooltip.GetClientRectCache;
         }
 
-        _obstructions = CollectObstructions(tooltipRect);
+        _panelObstructions = CollectPanelObstructions();
+        _obstructions = new List<RectangleF>(_panelObstructions);
+        if (tooltipRect.Width > 0 && tooltipRect.Height > 0)
+        {
+            _obstructions.Add(tooltipRect);
+        }
+
+        _activeObstructions = _obstructions;
 
         var tierMap = new Dictionary<(int, int), (List<int> CurrencyTier, int? RoomTier, int? AfflictionTier)>();
         var roomsByLayer = floorWindow.RoomsByLayer;
@@ -726,12 +733,16 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
 
                 // Hovering isolates a room: its own text stays, everything else gets out of
                 // the way, since a floor of eight rooms writes more than can be read at once.
-                if (Settings.MapDisplay.IsolateHoveredRoom && hoveredRoom != null && !ReferenceEquals(room, hoveredRoom))
+                var isHovered = ReferenceEquals(room, hoveredRoom);
+                if (isolating && !isHovered)
                 {
                     continue;
                 }
 
-                if (IsObstructed(_obstructions, room.GetClientRectCache))
+                // The tooltip covers the room it belongs to, so testing the hovered room
+                // against it would hide the text the hover was asking for.
+                _activeObstructions = isolating && isHovered ? _panelObstructions : _obstructions;
+                if (IsObstructed(_activeObstructions, room.GetClientRectCache))
                 {
                     continue;
                 }
