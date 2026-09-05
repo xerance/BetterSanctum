@@ -753,7 +753,8 @@ public class MapDisplaySettings
         "Text and connection lines drawn over the Sanctum floor map.",
         "Each connection carries three stacked lines - currency, room type, affliction - coloured by the best of that kind reachable through it. Set line thickness to 0 to hide them and leave only the route frame.",
         "Hide under game UI drops any text, frame or line that would be covered by an open panel or the chat box, the same way the overlay already gives way to a room tooltip.",
-        "Show reward prices needs the Ninja Price plugin and appends a chaos value to each currency. It is a price for one of them: the reward quantity is not exposed anywhere in room data, so this cannot say what a room actually pays out.");
+        "Show reward prices needs the Ninja Price plugin. On the map it prices only the tiers Price max tier allows, since a price on something you rated low is clutter; in the reward window it prices all three offers, which is where choosing between them happens. Either way it is the price of one: reward quantity is not exposed anywhere in room data.",
+        "Isolate hovered room hides every other room's text and the connection lines while you hover, so a floor does not write more than can be read at once. The route itself stays visible.");
 
     public ColorNode TextColor { get; set; } = new ColorNode(Color.White);
     public ColorNode BackgroundColor { get; set; } = new ColorNode(Color.Black with { A = 128 });
@@ -761,6 +762,9 @@ public class MapDisplaySettings
     public ToggleNode HideUnderGameUi { get; set; } = new ToggleNode(true);
     // Needs the Ninja Price plugin; without it prices are simply omitted
     public ToggleNode ShowRewardPrices { get; set; } = new ToggleNode(false);
+
+    // Hovering a room hides every other room's text and the connection lines
+    public ToggleNode IsolateHoveredRoom { get; set; } = new ToggleNode(true);
     public ToggleNode ShowEffectId { get; set; } = new ToggleNode(false);
     public ToggleNode ShowEffectName { get; set; } = new ToggleNode(true);
     public ToggleNode ShowEffectDescription { get; set; } = new ToggleNode(true);

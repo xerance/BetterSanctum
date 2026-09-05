@@ -65,9 +65,10 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
 
     // A unit price only. Reward quantity is not exposed anywhere in room data, so this
     // says what one of them is worth, not what the room pays out.
-    private string DescribeRewardPrice(SanctumDeferredRewardCategory reward)
+    private string DescribeRewardPrice(SanctumDeferredRewardCategory reward, int assignedTier)
     {
-        if (!Settings.MapDisplay.ShowRewardPrices)
+        // Same gate as routing: a price on a tier you rated low is clutter, not information
+        if (!Settings.MapDisplay.ShowRewardPrices || assignedTier > Settings.Routing.PriceMaxTier)
         {
             return "";
         }
@@ -231,6 +232,69 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
         }
     }
 
+    // The offer window gives text, not a reward object, so the base item has to be found
+    // by name. Every deferred reward category carries its BaseType, and BaseName is the
+    // singular item name the offer text is built from, so matching on that is exact
+    // rather than a guess at pluralisation.
+    private void DrawOfferPrices()
+    {
+        if (!Settings.MapDisplay.ShowRewardPrices)
+        {
+            return;
+        }
+
+        var offerWindow = GetOfferWindow();
+        var lookup = ResolvePriceLookup();
+        if (offerWindow == null || lookup == null)
+        {
+            return;
+        }
+
+        var categories = RemoteMemoryObject.pTheGame?.Files?.SanctumDeferredRewardCategories?.EntriesList;
+        if (categories == null)
+        {
+            return;
+        }
+
+        foreach (var offer in offerWindow.Children)
+        {
+            var text = offer.Children.Count > 1 ? offer.Children[1].Text : null;
+            if (string.IsNullOrWhiteSpace(text))
+            {
+                continue;
+            }
+
+            foreach (var category in categories)
+            {
+                var baseName = category.BaseType?.BaseName;
+                if (string.IsNullOrEmpty(baseName) || !text.Contains(baseName, StringComparison.InvariantCultureIgnoreCase))
+                {
+                    continue;
+                }
+
+                double chaos;
+                try
+                {
+                    chaos = lookup(category.BaseType);
+                }
+                catch (Exception)
+                {
+                    break;
+                }
+
+                if (chaos >= 1)
+                {
+                    // Unlike the map, every offer is priced here: three of them is not
+                    // clutter, and choosing between them is the whole point of the window.
+                    var rect = offer.GetClientRect();
+                    Graphics.DrawText($"{chaos:0}c each", new Vector2(rect.Left, rect.Bottom), Settings.MapDisplay.TextColor);
+                }
+
+                break;
+            }
+        }
+    }
+
     private void PreventLastOffer()
     {
         var sanctumOfferWindow = GetOfferWindow();
@@ -283,6 +347,8 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
         {
             TrackOfferWindow();
         }
+
+        DrawOfferPrices();
         
         // Only inside a Sanctum, and before the floor-map return below, since these draw
         // in the room rather than on the map
@@ -613,7 +679,8 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
             {
                 var room = roomLayer[roomIndex];
                 var fightRoomId = room.Data.FightRoom?.RoomType?.Id;
-                if (fightRoomId != null && Settings.MapDisplay.ConnectionLineThickness > 0)
+                var isolating = Settings.MapDisplay.IsolateHoveredRoom && hoveredRoom != null;
+                if (fightRoomId != null && Settings.MapDisplay.ConnectionLineThickness > 0 && !isolating)
                 {
                     var connections = floorWindow.FloorData.RoomLayout[layerIndex][roomIndex];
                     var connectedRoomData = connections.Select(index => (index, tierMap.GetValueOrDefault((layerIndex + 1, index))))
@@ -657,6 +724,13 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
                     }
                 }
 
+                // Hovering isolates a room: its own text stays, everything else gets out of
+                // the way, since a floor of eight rooms writes more than can be read at once.
+                if (Settings.MapDisplay.IsolateHoveredRoom && hoveredRoom != null && !ReferenceEquals(room, hoveredRoom))
+                {
+                    continue;
+                }
+
                 if (IsObstructed(_obstructions, room.GetClientRectCache))
                 {
                     continue;
@@ -685,7 +759,7 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
                         var tier = Settings.GetCurrencyTier(currencyName, reward.order);
                         if (tier <= Settings.HideCurrencyBelowTier)
                         {
-                            textSize = DrawTextWithBackground(currencyName + DescribeRewardPrice(reward.room), lineLocation, GetTierColor(tier), Settings.MapDisplay.BackgroundColor);
+                            textSize = DrawTextWithBackground(currencyName + DescribeRewardPrice(reward.room, tier), lineLocation, GetTierColor(tier), Settings.MapDisplay.BackgroundColor);
                             lineLocation.Y += textSize.Y;
                         }
                     }
