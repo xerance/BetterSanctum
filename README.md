@@ -82,4 +82,4 @@ Routing adjusts for the run:
 ## Building
 
 Put the source in `Plugins/Source/BetterSanctum` and launch the HUD, which compiles it.
-Debug output goes to `Logs/` in the HUD root.
+Debug output goes to `Logs/BetterSanctum/` in the HUD root.

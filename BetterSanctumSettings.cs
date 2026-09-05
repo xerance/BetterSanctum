@@ -864,8 +864,8 @@ public class DebugSettings
 {
     [JsonIgnore]
     public CustomNode Help { get; set; } = SettingsHelp.Block(
-        "Writes Logs/room-dump.txt once each time the floor map is opened, listing the raw data behind every room.",
-        "Track rewards appends every distinct reward seen to Logs/sanctum-rewards.csv: what the map offers and where, the room tooltip, and the reward window text. Leave it on across runs and the table fills in.");
+        "Writes Logs/BetterSanctum/room-dump.txt once each time the floor map is opened, listing the raw data behind every room.",
+        "Track rewards appends every distinct reward seen to Logs/BetterSanctum/sanctum-rewards.csv: what the map offers and where, the room tooltip, and the reward window text. Leave it on across runs and the table fills in.");
 
     public ToggleNode DebugDumpRoomData { get; set; } = new ToggleNode(false);
     public ToggleNode TrackRewards { get; set; } = new ToggleNode(false);

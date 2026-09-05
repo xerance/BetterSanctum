@@ -41,18 +41,19 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
     private double _divineChaosRate;
     private readonly Stopwatch _sinceDivineRateStopwatch = Stopwatch.StartNew();
 
-    // The HUD's own Logs folder, rather than beside Loader.exe: DirectoryFullName is not
-    // dependable for source-compiled plugins, and dropping files in the root is untidy.
+    // Logs/BetterSanctum under the HUD root. Not DirectoryFullName, which is not dependable
+    // for source-compiled plugins, and not the shared Logs folder directly, which every
+    // other plugin writes into too.
     private static string LogFilePath(string fileName)
     {
-        var directory = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Logs");
+        var directory = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Logs", "BetterSanctum");
         try
         {
             Directory.CreateDirectory(directory);
         }
         catch (Exception)
         {
-            // Fall back to the root if Logs cannot be created
+            // Fall back to the HUD root if the folder cannot be created
             return Path.Combine(AppDomain.CurrentDomain.BaseDirectory, fileName);
         }
 
