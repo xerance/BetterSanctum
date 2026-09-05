@@ -37,6 +37,8 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
     private RewardTracker _rewardTracker;
     private Func<BaseItemType, double> _currencyPrice;
     private readonly Stopwatch _sincePriceLookupStopwatch = Stopwatch.StartNew();
+    private double _divineChaosRate;
+    private readonly Stopwatch _sinceDivineRateStopwatch = Stopwatch.StartNew();
 
     public override bool Initialise()
     {
@@ -68,6 +70,60 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
         return _currencyPrice;
     }
 
+    // Read from the game's own reward categories rather than hardcoded: Divine Orbs is one
+    // of them, so its chaos price is the conversion rate. Cached, since it moves slowly and
+    // this is called per reward per frame. Zero means unknown, and prices stay in chaos.
+    private double GetDivineChaosRate()
+    {
+        if (_divineChaosRate > 0 && _sinceDivineRateStopwatch.Elapsed < TimeSpan.FromSeconds(60))
+        {
+            return _divineChaosRate;
+        }
+
+        var lookup = ResolvePriceLookup();
+        var categories = RemoteMemoryObject.pTheGame?.Files?.SanctumDeferredRewardCategories?.EntriesList;
+        if (lookup == null || categories == null)
+        {
+            return 0;
+        }
+
+        _sinceDivineRateStopwatch.Restart();
+        foreach (var category in categories)
+        {
+            if (category.BaseType?.BaseName != "Divine Orb")
+            {
+                continue;
+            }
+
+            try
+            {
+                _divineChaosRate = lookup(category.BaseType);
+            }
+            catch (Exception)
+            {
+                _divineChaosRate = 0;
+            }
+
+            break;
+        }
+
+        return _divineChaosRate;
+    }
+
+    private string FormatPrice(double chaos)
+    {
+        if (Settings.MapDisplay.ShowPricesInDivine)
+        {
+            var rate = GetDivineChaosRate();
+            if (rate > 0)
+            {
+                return $"{chaos / rate:0.##}d";
+            }
+        }
+
+        return $"{chaos:0}c";
+    }
+
     // A unit price only. Reward quantity is not exposed anywhere in room data, so this
     // says what one of them is worth, not what the room pays out.
     private string DescribeRewardPrice(SanctumDeferredRewardCategory reward, int assignedTier)
@@ -87,7 +143,7 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
         try
         {
             var chaos = lookup(reward.BaseType);
-            return chaos >= 1 ? $" ({chaos:0}c)" : "";
+            return chaos >= 1 ? $" ({FormatPrice(chaos)})" : "";
         }
         catch (Exception)
         {
@@ -287,7 +343,7 @@ public class BetterSanctumPlugin : BaseSettingsPlugin<BetterSanctumSettings>
                     // Unlike the map, every offer is priced here: three of them is not
                     // clutter, and choosing between them is the whole point of the window.
                     var rect = offer.GetClientRect();
-                    Graphics.DrawText($"{chaos:0}c each", new Vector2(rect.Left, rect.Bottom), Settings.MapDisplay.TextColor);
+                    Graphics.DrawText($"{FormatPrice(chaos)} each", new Vector2(rect.Left, rect.Bottom), Settings.MapDisplay.TextColor);
                 }
 
                 break;

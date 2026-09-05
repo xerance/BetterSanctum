@@ -754,6 +754,7 @@ public class MapDisplaySettings
         "Each connection carries three stacked lines - currency, room type, affliction - coloured by the best of that kind reachable through it. Set line thickness to 0 to hide them and leave only the route frame.",
         "Hide under game UI drops any text, frame or line that would be covered by an open panel or the chat box, the same way the overlay already gives way to a room tooltip.",
         "Show reward prices needs the Ninja Price plugin. On the map it prices only the tiers Price max tier allows, since a price on something you rated low is clutter; in the reward window it prices all three offers, which is where choosing between them happens. Either way it is the price of one: reward quantity is not exposed anywhere in room data.",
+        "Show prices in divine converts using the live Divine Orb price, read from the game's own reward list, and falls back to chaos while that is unknown.",
         "Isolate hovered room hides every other room's text and the connection lines while you hover, so a floor does not write more than can be read at once. The route itself stays visible.");
 
     public ColorNode TextColor { get; set; } = new ColorNode(Color.White);
@@ -762,6 +763,9 @@ public class MapDisplaySettings
     public ToggleNode HideUnderGameUi { get; set; } = new ToggleNode(true);
     // Needs the Ninja Price plugin; without it prices are simply omitted
     public ToggleNode ShowRewardPrices { get; set; } = new ToggleNode(false);
+
+    // Divine instead of chaos, using the live rate rather than a fixed number
+    public ToggleNode ShowPricesInDivine { get; set; } = new ToggleNode(false);
 
     // Hovering a room hides every other room's text and the connection lines
     public ToggleNode IsolateHoveredRoom { get; set; } = new ToggleNode(true);
