@@ -369,8 +369,8 @@ public class BetterSanctumSettings : ISettings
     // from offer text across floors 1 to 4: quantity depends on the currency and the slot
     // and not at all on the floor - chaos is 5/10/14 on floor 3 exactly as on floor 4.
     //
-    // The default covers currencies not yet seen - divine, fracturing and mirror among
-    // them - and matches the shape every single-item reward takes.
+    // The default covers currencies not yet seen - mirrors of kalandra being the last one
+    // outstanding - and matches the shape every single-item reward takes.
     public static readonly int[] DefaultRewardQuantity = { 1, 1, 1 };
 
     public static readonly IReadOnlyDictionary<string, int[]> RewardQuantities = new Dictionary<string, int[]>
@@ -383,6 +383,7 @@ public class BetterSanctumSettings : ISettings
         ["Chaos Orbs"] = new[] { 5, 10, 14 },
         ["Orbs of Scouring"] = new[] { 5, 10, 14 },
         ["Orbs of Regret"] = new[] { 5, 10, 14 },
+        ["Orbs of Binding"] = new[] { 5, 10, 14 },
         ["Blessed Orbs"] = new[] { 4, 8, 12 },
         ["Vaal Orbs"] = new[] { 4, 8, 12 },
         ["Regal Orbs"] = new[] { 4, 8, 12 },
@@ -393,6 +394,7 @@ public class BetterSanctumSettings : ISettings
         ["Instilling Orbs"] = new[] { 4, 8, 12 },
         ["Ancient Orbs"] = new[] { 1, 1, 1 },
         ["Divine Orbs"] = new[] { 1, 1, 1 },
+        ["Fracturing Orbs"] = new[] { 1, 1, 1 },
         ["Divine Vessels"] = new[] { 1, 1, 1 },
         ["Orbs of Annulment"] = new[] { 1, 1, 1 },
         ["Volatile Vaal Orbs"] = new[] { 1, 1, 1 },
