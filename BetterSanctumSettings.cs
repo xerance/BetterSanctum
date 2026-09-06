@@ -369,8 +369,8 @@ public class BetterSanctumSettings : ISettings
     // from offer text across floors 1 to 4: quantity depends on the currency and the slot
     // and not at all on the floor - chaos is 5/10/14 on floor 3 exactly as on floor 4.
     //
-    // The default covers currencies not yet seen - mirrors of kalandra being the last one
-    // outstanding - and matches the shape every single-item reward takes.
+    // The default matches the shape every single-item reward takes. The game's own
+    // DeferredRewards table has now been read, so every currency in it is accounted for.
     public static readonly int[] DefaultRewardQuantity = { 1, 1, 1 };
 
     public static readonly IReadOnlyDictionary<string, int[]> RewardQuantities = new Dictionary<string, int[]>
@@ -394,11 +394,21 @@ public class BetterSanctumSettings : ISettings
         ["Instilling Orbs"] = new[] { 4, 8, 12 },
         ["Ancient Orbs"] = new[] { 1, 1, 1 },
         ["Divine Orbs"] = new[] { 1, 1, 1 },
+        ["Mirrors of Kalandra"] = new[] { 1, 1, 1 },
         ["Fracturing Orbs"] = new[] { 1, 1, 1 },
         ["Divine Vessels"] = new[] { 1, 1, 1 },
         ["Orbs of Annulment"] = new[] { 1, 1, 1 },
         ["Volatile Vaal Orbs"] = new[] { 1, 1, 1 },
         ["Sacred Orbs"] = new[] { 1, 1, 1 },
+    };
+
+    // Read from the game's DeferredRewards table, which lists every count a currency can
+    // pay. Most single-item rewards top out at 2 there, which the doubling rule covers.
+    // These two do not: a mirror is 1 in every row it has, and a divine vessel reaches 3.
+    public static readonly IReadOnlyDictionary<string, int> FinalFloorLastSlotQuantity = new Dictionary<string, int>
+    {
+        ["Mirrors of Kalandra"] = 1,
+        ["Divine Vessels"] = 3,
     };
 
     public static int GetRewardQuantity(string currencyName, int slot, int floor)
@@ -413,7 +423,17 @@ public class BetterSanctumSettings : ISettings
         // as 2 at floor 4 slot 2 while every other single-item reward reads 1 elsewhere.
         // Stacked currencies do not do this - chaos is 14 in that slot on floors 2 and 4
         // alike - so the rule is tied to the quantity, not applied across the board.
-        return quantity == 1 && slot == 2 && floor >= 4 ? 2 : quantity;
+        if (slot != 2 || floor < 4)
+        {
+            return quantity;
+        }
+
+        if (currencyName != null && FinalFloorLastSlotQuantity.TryGetValue(currencyName, out var finalCount))
+        {
+            return finalCount;
+        }
+
+        return quantity == 1 ? 2 : quantity;
     }
 
     // A bare name applies to every reward slot; a "name/slot" key overrides one slot.
