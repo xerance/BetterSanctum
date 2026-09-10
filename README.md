@@ -1,10 +1,10 @@
-# BetterSanctum
+# BetterSanctumPlus
 
 A Sanctum overlay for [ExileApi](https://github.com/exApiTools/ExileApi-Compiled).
 
-Rates every room on the floor map from tier values you set, frames the best route from
-where you stand to the boss, and marks guard spawners and hazards in the room you are
-fighting in.
+Prices every room on the floor map in chaos, frames the best route from where you stand to
+the boss, and marks guard spawners and hazards in the room you are fighting in. Records
+what each run produced and writes it to CSV.
 
 ## Credit
 
@@ -17,8 +17,10 @@ The in-room spawner and hazard overlay is ported from
 the above, which is also where the idea of scoring whole routes rather than colouring
 individual connections comes from.
 
-Prices, where enabled, come from the [Ninja Price](https://github.com/exApiTools/Ninja-Price)
-plugin through the plugin bridge.
+Prices come through the plugin bridge from anything registering
+`NinjaPrice.GetBaseItemTypeValue` - [Ninja Price](https://github.com/exCore2/NinjaPricer)
+and [Get-Chaos-Value](https://github.com/exApiTools/Get-Chaos-Value) both do, so either
+one will serve and there is no reason to run both.
 
 Original donation addresses, carried over from both:
 
@@ -26,60 +28,138 @@ BTC: bc1qke67907s6d5k3cm7lx7m020chyjp9e8ysfwtuz
 
 ETH: 0x3A37B3f57453555C2ceabb1a2A4f55E0eB969105
 
+## Relationship to BetterSanctumDev
+
+[xerance/BetterSanctumDev](https://github.com/xerance/BetterSanctumDev) is where changes
+are worked out, so that the one you actually run stays working while they are. What lands
+here is what has been played with rather than what was thought of, and porting between the
+two is a rename: they differ by their namespace, their class names, their project name,
+and one attribute that hides the Debug section.
+
+The HUD can install both. It labels the plugin list by namespace and keys the settings file
+off the assembly name, so the two appear as separate entries with settings of their own -
+`BetterSanctumPlus_settings.json` here, logs in `Logs/BetterSanctumPlus/`.
+
+**Do not enable both at once.** They draw the same overlay, so you get every frame and
+every line twice.
+
 ## How routing works
 
-Give every currency, room type and affliction a value from 0 to 8:
+Everything is scored in chaos. A route is worth the reward you would take on it, less what
+the rooms and afflictions on the way cost. You enter exactly one room per layer, so every
+route holds the same number of rooms and their totals compare directly.
 
-| 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 |
-|---|---|---|---|---|---|---|---|---|
-| always route through | good | | | neutral | | | | never route through |
+Rewards are priced through the bridge and multiplied by the quantity that currency pays in
+that slot - quantities are measured rather than read, and single-item rewards double in the
+third slot on floor 4. Only a room's best slot counts, since the three offers are one
+reward at different timings and you take one. There is no currency tier list: a reward's
+band is read off what it is worth, which is all a tier was ever standing in for, and the
+same bands colour it on the map.
 
-You enter exactly one room per layer, so every route holds the same number of rooms and
-their totals compare directly. A route is counted per tier and weighted **per axis**,
-because the same tier means different things depending on what wears it:
+| band | 0 | 1 | 2 | 3 | 4 | 5 |
+|---|---|---|---|---|---|---|
+| worth | 5d+ | 1d+ | 0.5d+ | 0.3d+ | 0.1d+ | the rest |
 
-| tier | reward | affliction | room type |
+Rooms and afflictions have no price of their own, so both are anchored to a percentage of
+the live divine price and move with it - **Room value** at 40% and **Affliction cost** at
+80%. Each scale steps in fifths of its anchor:
+
+| tier | 0 | 5 | 10 |
 |---|---|---|---|
-| 1 | +100 | +100 | +20 |
-| 2 | +3 | +30 | +10 |
-| 3 | +1 | +10 | +4 |
-| 5 | -1 | -20 | -4 |
-| 6 | -3 | -70 | -15 |
-| 7 | -10 | -250 | -40 |
+| room | worth the anchor | nothing | costs the anchor |
+| affliction | costs nothing | costs the anchor | *(never entered, at 6)* |
 
-Rewards are deliberately bimodal: a tier-1 reward decides routes while a tier-2 is a
-bonus, so it would take two dozen lesser rewards to justify one bad affliction. Afflictions
-are calibrated on the trade that matters - one tier-1 reward is worth one bad affliction
-but not two. Room type sits between them, enough to prefer a calm route and never enough
-to turn down a tier 1.
+Rooms are symmetric, since a room type can be worth seeking as readily as avoiding, and the
+tier applies to the fight room and the reward room alike, so a room is counted twice from
+the one list. Afflictions are one-sided - none of them is worth having - and stop at 6,
+which is a block rather than a price.
 
-Tiers 0 and 8 score nothing and are compared ahead of the sum: most must-takes wins first,
-then fewest never-enters. So a route reaching a 0 beats every route that does not, through
-anything marked 8.
+Two things are counted rather than priced and are compared ahead of the chaos: rewards past
+**Must take at** (5 divine, the line the top band is drawn at), then afflictions at 6. Most
+must-takes wins first, then fewest blocks. So a route reaching a must-take beats every
+route that does not, through anything blocked.
 
-Currency is rated per reward slot, only a room's best slot counts, and quantities are
-known per currency and slot - single-item rewards double in the third slot on floor 4.
+What the map cannot read is assumed: a **Deal** hides its rewards until you are inside, and
+is worth 50% of a divine from floor 3; a room the map has not revealed is worth 20%. Zero
+would route you around everything you have not seen yet.
+
+Where you disagree with the market, a per-currency chaos override replaces the price
+outright. `0` means the reward pulls no route at all, `-1` or absent means use the price.
 
 ## Context
 
 Routing adjusts for the run:
 
-- **Run type** per profile: Normal, The Hour of Divinity, The Gilded Chalice. Hour of
-  Divinity flattens BoonFountain to neutral, Gilded Chalice flattens Fountain.
-- **Floor**: floors 3-4 favour Deal rooms and better currency, floors 1-2 favour Treasure
-  and Merchant, except under Hour of Divinity where boons cannot be bought.
-- **Prices**, optionally: with Ninja Price installed, currencies you rated alike are
-  ordered by what they are worth, capped so price can never overrule a tier you assigned.
+- **Run type** per profile. Default applies nothing. Normal favours Merchant, Treasure and
+  TreasureMinor on floors 1-2, while there is still a run left to spend coins in, and
+  discounts the Aureus afflictions on floors 3-4 where coins matter less. The Hour of
+  Divinity drops BoonFountain to worth nothing and gives up the coin bias with it, there
+  being no boons to buy; The Gilded Chalice drops Fountain the same way. Both relics
+  duplicate the final reward, so either also marks the offers not worth taking.
+- **Floor**: quantities double in the last slot on floor 4, and a Deal is only worth its
+  full assumption from floor 3.
+- **Prices**: with no price plugin the divine falls back to a figure you set, so rooms and
+  afflictions go on scoring against each other, but every reward reads as unknown and stops
+  separating routes. Overrides still price anything you care about by hand.
+
+Adjustments move a tier by a step before it is priced, never by adding chaos, so they keep
+their meaning whatever the anchors are set to. A blocked affliction is never adjusted.
+
+## Run tracking
+
+Off by default. A window in the Forbidden Sanctum hub starts and ends a run, and End Run
+writes into `Logs/BetterSanctumPlus/tracking/<tracking list>/`:
+
+- `sanctum-runs.csv` - a row per run: how long it took, what it paid across all four
+  floors, how many deals you entered from floor 3 and what they gave up, how many rewards
+  worth a divine or more the run put in front of you whether or not a route could reach
+  them, and whether Golden Smoke or Deceptive Mirror turned up and on which floor.
+- `sanctum-run-rooms.csv` - a row per room and reward slot, marked `map` or `window`. A
+  Deal only ever produces `window` rows, since the map reads its rewards as empty and they
+  exist only in the reward window while you stand there.
+- `sanctum-run-wide.csv` - a row per run and a row per its deals, with a column per
+  currency, which is the shape a spreadsheet charts. Which currencies get a column follows
+  a price threshold, or a list you tick by hand.
+
+Two more sit above the tracking lists, in `Logs/BetterSanctumPlus/`, because every list
+adds to them:
+
+- `sanctum-deals.csv` - a row per offer of every deal you walked into, on any floor, with
+  nothing filtered out. The run file reports deals under the same rules as the rest of the
+  haul, which drops most of what a deal actually pays, so this is the raw record to work
+  out what a deal is worth from once there is enough of it.
+- `sanctum-run-currency.csv` - the run again, one row per currency, which is the shape a
+  pivot table groups.
+
+Both carry the tracking list that wrote each row: a duplicate run counts a different slot
+as taken, so a row means something slightly different depending on which list produced it.
+
+**Export xlsx** builds a workbook from the wide file - runs banded by pair, totals in chaos
+and in divine as formulas against a price sheet, and a total row under the last run.
+**Blank template** writes the same workbook empty, for recording runs by hand.
+
+Hauls list chaos and anything worth five chaos a unit or more, richest first, since the
+long tail of alteration and chance says nothing about how a run went. Comma separated and
+quoted the ordinary way, so a spreadsheet opens either without being asked about
+separators.
+
+Rooms reveal a few layers at a time, so a floor is merged across every map opening rather
+than captured once. What a run produced is worked out from the rooms you entered, assuming
+you took the most valuable slot in each - an estimate, and an optimistic one, so floors
+completed is recorded beside it. In-progress state is saved to disk, so restarting the HUD
+part way through a run does not lose it.
 
 ## Other features
 
 - In-room overlay marking Sanctum spawners and hazard telegraphs
 - Prices on the reward window, with quantity taken from the offer text
+- Rewards on the map read as the count and what that many come to
 - Hovering a room hides everything else on the map
 - Overlay gives way to tooltips and open panels
-- Profiles, each holding its own tiers, run type and currency cutoff
+- Profiles, each holding its own tiers, price overrides, run type and hide threshold
+- Tracking lists, each recording into a folder of its own
 
 ## Building
 
-Put the source in `Plugins/Source/BetterSanctum` and launch the HUD, which compiles it.
-Debug output goes to `Logs/BetterSanctum/` in the HUD root.
+Put the source in `Plugins/Source/BetterSanctumPlus` and launch the HUD, which compiles
+it. Output goes to `Logs/BetterSanctumPlus/` in the HUD root.

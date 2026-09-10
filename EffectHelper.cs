@@ -10,7 +10,7 @@ using SharpDX;
 using Vector2 = System.Numerics.Vector2;
 using Vector3 = System.Numerics.Vector3;
 
-namespace BetterSanctum;
+namespace BetterSanctumPlus;
 
 // In-room overlay, as opposed to everything else here which draws on the floor map:
 // marks where guards spawn from and where hazards are about to land.
@@ -18,9 +18,9 @@ public class EffectHelper
 {
     private readonly GameController _gameController;
     private readonly Graphics _graphics;
-    private readonly BetterSanctumSettings _settings;
+    private readonly BetterSanctumPlusSettings _settings;
 
-    public EffectHelper(GameController gameController, Graphics graphics, BetterSanctumSettings settings)
+    public EffectHelper(GameController gameController, Graphics graphics, BetterSanctumPlusSettings settings)
     {
         _gameController = gameController;
         _graphics = graphics;
