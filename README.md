@@ -22,14 +22,13 @@ Prices come through the plugin bridge from anything registering
 and [Get-Chaos-Value](https://github.com/exApiTools/Get-Chaos-Value) both do, so either
 one will serve and there is no reason to run both.
 
-Donation addresses, carried over unchanged. BetterSanctum and PathfindSanctum publish the
-same pair, PathfindSanctum being a fork of BetterSanctum:
+Donation addresses, carried over unchanged:
 
-**BetterSanctum · PathfindSanctum**
+**BetterSanctum**
 
 BTC: bc1qke67907s6d5k3cm7lx7m020chyjp9e8ysfwtuz
 
-**BetterSanctum · PathfindSanctum**
+**BetterSanctum**
 
 ETH: 0x3A37B3f57453555C2ceabb1a2A4f55E0eB969105
 
