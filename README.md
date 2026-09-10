@@ -22,26 +22,16 @@ Prices come through the plugin bridge from anything registering
 and [Get-Chaos-Value](https://github.com/exApiTools/Get-Chaos-Value) both do, so either
 one will serve and there is no reason to run both.
 
-Original donation addresses, carried over from both:
+Donation addresses, carried over unchanged. BetterSanctum and PathfindSanctum publish the
+same pair, PathfindSanctum being a fork of BetterSanctum:
+
+**BetterSanctum · PathfindSanctum**
 
 BTC: bc1qke67907s6d5k3cm7lx7m020chyjp9e8ysfwtuz
 
+**BetterSanctum · PathfindSanctum**
+
 ETH: 0x3A37B3f57453555C2ceabb1a2A4f55E0eB969105
-
-## Relationship to BetterSanctumDev
-
-[xerance/BetterSanctumDev](https://github.com/xerance/BetterSanctumDev) is where changes
-are worked out, so that the one you actually run stays working while they are. What lands
-here is what has been played with rather than what was thought of, and porting between the
-two is a rename: they differ by their namespace, their class names, their project name,
-and one attribute that hides the Debug section.
-
-The HUD can install both. It labels the plugin list by namespace and keys the settings file
-off the assembly name, so the two appear as separate entries with settings of their own -
-`BetterSanctumPlus_settings.json` here, logs in `Logs/BetterSanctumPlus/`.
-
-**Do not enable both at once.** They draw the same overlay, so you get every frame and
-every line twice.
 
 ## How routing works
 
