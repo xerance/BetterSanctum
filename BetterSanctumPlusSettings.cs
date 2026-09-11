@@ -783,13 +783,18 @@ public class BetterSanctumPlusSettings : ISettings
     public MapDisplaySettings MapDisplay { get; set; } = new MapDisplaySettings();
     public TierColorSettings TierColors { get; set; } = new TierColorSettings();
     public InRoomSettings InRoom { get; set; } = new InRoomSettings();
+    // Hidden, and switched off by the plugin because it is hidden. Tracking is still
+    // settling - its files and columns keep changing - and a CSV keeps the columns it was
+    // started with, so collecting in a release build now would leave files stuck on an old
+    // layout. Dev keeps it; showing it here again is this one attribute.
+    [IgnoreMenu]
     public RunTrackingSettings RunTracking { get; set; } = new RunTrackingSettings();
     // Kept, and not shown. The room dump and the state probe are for working out what the
     // game is doing, which is what BetterSanctumDev is for - here they are a menu section
     // nobody has a use for, and every one of them defaults off.
     //
     // The code stays rather than being stripped so that porting from Dev remains a rename
-    // and not a merge: the two trees differ by their names and by this attribute.
+    // and not a merge: the two trees differ by their names and by these attributes.
     [IgnoreMenu]
     public DebugSettings Debug { get; set; } = new DebugSettings();
 
@@ -1023,6 +1028,7 @@ public class RunTrackingSettings
         "A wide file keeps the columns it was started with, so changing any of this only takes effect in a new one. Delete the file to pick up a changed set; the quantity columns will not add up to chaos either way, since the tail is what the file leaves out.",
         "Rows are marked map or window. Map is what the floor map showed. Window is what the reward window said while you stood in the room, which for a Deal room is the only place its rewards appear at all - the map reads them as empty.",
         "Start and End sit in a window that appears while you are in the Forbidden Sanctum hub. An unfinished run is kept in run-state.json, so restarting the HUD part way through does not lose it.",
+        "Pause in the same window stops the clock while you step out - to trade, say - and the time paused is left out of the run's duration. Walking back into the Sanctum resumes it, so a forgotten pause cannot swallow the rest of the run.",
         "What a run produced is worked out from the rooms you entered, assuming you took the most valuable slot in each. Nothing reads what you actually clicked, so treat the haul as an estimate - and an optimistic one, since the best slot is usually the end-of-Sanctum deferral, which pays nothing if the run ends early.",
         "On a duplicate run the assumption follows the same rule the offer window draws: the slots crossed out on screen are not counted as taken, so the haul cannot credit you with a reward the overlay told you to walk past.",
         "Track rewards appends every distinct reward seen to Logs/BetterSanctumPlus/sanctum-rewards.csv: what the map offers and where, the room tooltip, and the reward window text. It fills in the measured quantity table the routing prices rewards from, so it is worth leaving on across a league.");

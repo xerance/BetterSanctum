@@ -91,50 +91,6 @@ Routing adjusts for the run:
 Adjustments move a tier by a step before it is priced, never by adding chaos, so they keep
 their meaning whatever the anchors are set to. A blocked affliction is never adjusted.
 
-## Run tracking
-
-Off by default. A window in the Forbidden Sanctum hub starts and ends a run, and End Run
-writes into `Logs/BetterSanctumPlus/tracking/<tracking list>/`:
-
-- `sanctum-runs.csv` - a row per run: how long it took, what it paid across all four
-  floors, how many deals you entered from floor 3 and what they gave up, how many rewards
-  worth a divine or more the run put in front of you whether or not a route could reach
-  them, and whether Golden Smoke or Deceptive Mirror turned up and on which floor.
-- `sanctum-run-rooms.csv` - a row per room and reward slot, marked `map` or `window`. A
-  Deal only ever produces `window` rows, since the map reads its rewards as empty and they
-  exist only in the reward window while you stand there.
-- `sanctum-run-wide.csv` - a row per run and a row per its deals, with a column per
-  currency, which is the shape a spreadsheet charts. Which currencies get a column follows
-  a price threshold, or a list you tick by hand.
-
-Two more sit above the tracking lists, in `Logs/BetterSanctumPlus/`, because every list
-adds to them:
-
-- `sanctum-deals.csv` - a row per offer of every deal you walked into, on any floor, with
-  nothing filtered out. The run file reports deals under the same rules as the rest of the
-  haul, which drops most of what a deal actually pays, so this is the raw record to work
-  out what a deal is worth from once there is enough of it.
-- `sanctum-run-currency.csv` - the run again, one row per currency, which is the shape a
-  pivot table groups.
-
-Both carry the tracking list that wrote each row: a duplicate run counts a different slot
-as taken, so a row means something slightly different depending on which list produced it.
-
-**Export xlsx** builds a workbook from the wide file - runs banded by pair, totals in chaos
-and in divine as formulas against a price sheet, and a total row under the last run.
-**Blank template** writes the same workbook empty, for recording runs by hand.
-
-Hauls list chaos and anything worth five chaos a unit or more, richest first, since the
-long tail of alteration and chance says nothing about how a run went. Comma separated and
-quoted the ordinary way, so a spreadsheet opens either without being asked about
-separators.
-
-Rooms reveal a few layers at a time, so a floor is merged across every map opening rather
-than captured once. What a run produced is worked out from the rooms you entered, assuming
-you took the most valuable slot in each - an estimate, and an optimistic one, so floors
-completed is recorded beside it. In-progress state is saved to disk, so restarting the HUD
-part way through a run does not lose it.
-
 ## Other features
 
 - In-room overlay marking Sanctum spawners and hazard telegraphs
@@ -143,7 +99,6 @@ part way through a run does not lose it.
 - Hovering a room hides everything else on the map
 - Overlay gives way to tooltips and open panels
 - Profiles, each holding its own tiers, price overrides, run type and hide threshold
-- Tracking lists, each recording into a folder of its own
 
 ## Building
 
